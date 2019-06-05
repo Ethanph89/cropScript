@@ -6,7 +6,8 @@ import numpy as np
 import boto3
 import tkinter as tk
 from tkinter.filedialog import askopenfilename
-
+import sys
+np.set_printoptions(threshold=sys.maxsize)
 
 # XMP FILE DIRECTIONS DON'T CORRESPOND TO WHAT YOU THINK:
 #   LEFT SIDE OF IMAGE => XMP TOP
@@ -18,12 +19,19 @@ from tkinter.filedialog import askopenfilename
 # MAIN
 def main():
 
-    # Constants
+    # CONSTANTS
+    # Close up const
     CONST_PERCENT_ABOVE_HAIR = .07
     CONST_PERCENT_BELOW_CHIN = .24
+
+    # Far away const
+    CONST_IS_FAR = 6000
+    CONST_PERCENT_ABOVE_HAIR_FAR = .07
+    CONST_PERCENT_BELOW_CHIN_FAR = .50
+
     CONST_AVERAGE_TO_CROP = 50
 
-    #asks for CSV that contains a path to the images for processing
+    # asks for CSV that contains a path to the images for processing
     root = tk.Tk()
     root.withdraw()
     filename = askopenfilename()
@@ -32,7 +40,8 @@ def main():
 
     # creates a data.csv file that contains all cropping info
     f = open("data.csv", "w")
-    f.write('image' + ',' + 'tophead' + ',' + 'topcrop' + ',' + 'bottomcrop' + ',' + 'leftcrop' + ',' + 'rightcrop' '\n')
+    f.write('image' + ',' + 'tophead' + ',' + 'topcrop' + ',' + 'bottomcrop' + ',' + 'leftcrop' + ',' + 'rightcrop' +
+            ',' + 'toneR' + ',' + 'toneG' + ',' + 'toneB' '\n')
     f.close()
 
     # go through CSV line by line
@@ -43,7 +52,7 @@ def main():
 
             # defining the paths out of the CSV
             jpgPath = line.strip() + '.jpg'
-            xmpPath = line.strip().replace('crop', '') + '.xmp'
+            #xmpPath = line.strip().replace('crop', '') + '.xmp'
             xmpPathMac = line.strip() + '.xmp'
 
             # opening jpg into pixel array
@@ -67,15 +76,30 @@ def main():
             # finds percentage-based measure of top of head
             hairCoords = findTopOfHair(pixelArray, BoundingBoxJSON, averageBackgroundColor, CONST_AVERAGE_TO_CROP)
 
-            # subtracts off the average amount of space on top of head
-            cropCoordsTop = hairCoords - CONST_PERCENT_ABOVE_HAIR
-
             # defines bounding box top and bottom
             BBTop = BoundingBoxJSON.get("Top")
             BBBottom = BBTop + BoundingBoxJSON.get("Height")
 
-            # adds below chin crop to the bottom coordinate to find crop coords bottom
-            cropCoordsBottom = CONST_PERCENT_BELOW_CHIN + BBBottom
+            # uses width of head to make average despairities easier to find
+            leftBBInPixels = (int)(pixelArray.shape[1] * BoundingBoxJSON.get("Left"))
+            rigthBBInPixels = (int)(
+                (pixelArray.shape[1] * BoundingBoxJSON.get("Left")) + (
+                            pixelArray.shape[1] * BoundingBoxJSON.get("Width")))
+            topBBInPixels = (int)(pixelArray.shape[0] * BBTop)
+            bottomBBInPixels = (int)(pixelArray.shape[0] * BBBottom)
+
+            # finds BB dimensions
+            BBWidthInPixels = rigthBBInPixels - leftBBInPixels
+            BBHeightInPixels = bottomBBInPixels - topBBInPixels
+            BBAreaInPixels = BBHeightInPixels * BBWidthInPixels
+
+            # finds top and bottom crop depending on pose
+            if (BBAreaInPixels > CONST_IS_FAR):
+                cropCoordsTop = hairCoords - CONST_PERCENT_ABOVE_HAIR
+                cropCoordsBottom = CONST_PERCENT_BELOW_CHIN + BBBottom
+            else:
+                cropCoordsTop = hairCoords - CONST_PERCENT_ABOVE_HAIR_FAR
+                cropCoordsBottom = CONST_PERCENT_BELOW_CHIN_FAR + BBBottom
 
             # finds all dimensions and crop coords for XMP
             totalCropHeight = cropCoordsBottom - cropCoordsTop
@@ -93,8 +117,11 @@ def main():
             # makes the XMP file
             makeXMP(cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, xmpPathMac)
 
+            # find skin tone
+            tone = skinToneAverage(pixelArray, BoundingBoxJSON, BBTop, BBBottom)
+
             # copies data to csv
-            printInformation(jpgPath, hairCoords, cropCoordsTop, cropCoordsBottom, cropLeft, cropRight)
+            printInformation(jpgPath, hairCoords, cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, tone)
 
 
 # BODY FUNCTIONS
@@ -103,6 +130,11 @@ def main():
 def openJPG(path):
     im = Image.open(path)
     pixel_array = np.array(im)
+
+    #v = open("array.txt", "w")
+    #v.write(str(pixel_array))
+    #v.close()
+
     return pixel_array
 
 # parses AWS output into an array
@@ -217,10 +249,45 @@ def rekognitionRequest(path):
 
     return response
 
+# find average RGB values of skin tone
+def skinToneAverage(pixelArray, boundingBox, BBTop, BBBottom):
+
+    # uses width of head to make average despairities easier to find
+    leftBBInPixels = (int)(pixelArray.shape[1] * boundingBox.get("Left"))
+    rigthBBInPixels = (int)(
+        (pixelArray.shape[1] * boundingBox.get("Left")) + (pixelArray.shape[1] * boundingBox.get("Width")))
+    topBBInPixels = (int)(pixelArray.shape[0] * BBTop)
+    bottomBBInPixels = (int)(pixelArray.shape[0] * BBBottom)
+
+    # finds BB dimensions
+    BBWidth = rigthBBInPixels - leftBBInPixels
+    BBHeight = bottomBBInPixels - topBBInPixels
+    BBArea = BBHeight * BBWidth
+    #print(rigthBBInPixels, ' ', leftBBInPixels, ' ', bottomBBInPixels, ' ', topBBInPixels)
+    #print(BBWidth, ' ', BBHeight, ' ', BBArea)
+
+    # compares read in pixels to average value row by row until it finds an average bigger than averageToCrop
+    rowNum = 0
+    rSum = 0
+    gSum = 0
+    bSum = 0
+    for row in pixelArray[topBBInPixels:bottomBBInPixels:1]:
+        for i in range(leftBBInPixels, rigthBBInPixels):
+            rSum += row[i][0]
+            gSum += row[i][1]
+            bSum += row[i][2]
+            rowNum += 1
+    skinAverage = [rSum / BBArea, gSum / BBArea, bSum / BBArea]
+
+    #print(skinAverage)
+    return skinAverage
+
 # copies crop info to data.csv
-def printInformation(img_name, hairCoords, cropCoordsTop, cropCoordsBottom, cropLeft, cropRight):
+def printInformation(img_name, hairCoords, cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, tone):
     d = open("data.csv", "a")
-    d.write(str(img_name) + ',' + str(hairCoords) + ',' + str(cropCoordsTop) + ',' + str(cropCoordsBottom) + ',' + str(cropLeft) + ',' + str(cropRight) + '\n')
+    d.write(str(img_name) + ',' + str(hairCoords) + ',' + str(cropCoordsTop) + ',' + str(cropCoordsBottom) + ',' +
+            str(cropLeft) + ',' + str(cropRight) + ',' + str(round(tone[0])) + ',' + str(round(tone[1])) + ',' +
+            str(round(tone[2])) + '\n')
     d.close()
 
 # runs main
