@@ -109,10 +109,26 @@ def main():
             cropLeft = faceCenterPercentages[0] - (cropWidth / 2)
             cropRight = faceCenterPercentages[0] + (cropWidth / 2)
 
+            # ensures all crops are within range
             if cropLeft < 0:
                 cropLeft = 0
+            if cropLeft > 1:
+                cropLeft = 1
+
             if cropRight > 1:
                 cropRight = 1
+            if cropRight < 0:
+                cropRight = 0
+
+            if cropCoordsTop > 1:
+                cropCoordsTop = 1
+            if cropCoordsTop < 0:
+                cropCoordsTop = 0
+
+            if cropCoordsBottom > 1:
+                cropCoordsBottom = 1
+            if cropCoordsBottom < 0:
+                cropCoordsBottom = 0
 
             # makes the XMP file
             makeXMP(cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, xmpPathMac)
