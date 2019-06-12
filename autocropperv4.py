@@ -9,6 +9,7 @@ import tkinter as tk
 from tkinter.filedialog import askopenfilename
 from tkinter import *
 from pathlib import Path
+import shutil
 import sys
 np.set_printoptions(threshold=sys.maxsize)
 
@@ -34,15 +35,42 @@ def main():
 
     CONST_AVERAGE_TO_CROP = 50
 
+    CONST_CR2XMP = "J:/_CropScript/CR2template.xmp"
+    CONST_ARWXMP = "J:/_CropScript/ARWtemplate.xmp"
+
     # creates a data.csv file that contains all cropping info
     f = open("data.csv", "w")
     f.write('image' + ',' + 'tophead' + ',' + 'topcrop' + ',' + 'bottomcrop' + ',' + 'leftcrop' + ',' + 'rightcrop' +
             ',' + 'toneR' + ',' + 'toneG' + ',' + 'toneB' '\n')
     f.close()
 
-    # defines path to JPGs
+    # defines path to JPGs and finds RAW file type
+    # user selects JPG folder
     pathToFolder = browse_button()
     #print(pathToFolder)
+
+    # find RAW file type
+    pathToType =  pathToFolder.replace('_JPG_CROP', '')
+    pathlistCR2 = Path(pathToType).glob('**/*.CR2')
+    pathlistARW = Path(pathToType).glob('**/*.arw')
+
+    countCR2 = 0
+    countARW = 0
+
+    for path in pathlistCR2:
+        countCR2 = countCR2 + 1
+
+    for path in pathlistARW:
+        countARW = countARW + 1
+
+    if countCR2 > countARW:
+        filetype = "CR2"
+    elif countARW > countCR2:
+        filetype = "ARW"
+    else:
+        filetype = "ERROR"
+
+    print(filetype)
 
     pathlist = Path(pathToFolder).glob('**/*.jpg')
 
@@ -52,9 +80,14 @@ def main():
 
         # defining the paths out of the CSV
         jpgPath = path_in_str
-        #print('path to jpg:' + jpgPath)
+        #print('path to jpg: ' + jpgPath)
         xmpPath = path_in_str.replace('_JPG_CROP', '').replace('.jpg', '.xmp')
-        #print('path to xmp:' + xmpPath)
+        #print('path to xmp: ' + xmpPath)
+        folderPath = pathToFolder.replace('_JPG_CROP', '')
+        #print('path to folder: ' + folderPath)
+
+        # initializes default XMP
+        defaultXMP(folderPath, xmpPath, filetype, CONST_CR2XMP, CONST_ARWXMP)
 
         # opening jpg into pixel array
         pixelArray = openJPG(jpgPath)
@@ -65,8 +98,8 @@ def main():
         # getting aws rekognition JSON output
         awsMasterOutput = parse_aws_output(faceFeaturesJSON)
         BoundingBoxJSON = awsMasterOutput[0]
-        LandmarksJSON = awsMasterOutput[1]
-        OrientationCorrection = awsMasterOutput[2]
+        #LandmarksJSON = awsMasterOutput[1]
+        #OrientationCorrection = awsMasterOutput[2]
 
         # getting center of face
         faceCenterPercentages = centerOfBoundingBox(BoundingBoxJSON)
@@ -161,6 +194,40 @@ lbl1 = Label(master=root, textvariable=folder_path)
 lbl1.grid(row=0, column=1)
 button2 = Button(text="Browse", command=browse_button)
 button2.grid(row=0, column=3)
+
+# creates the default XMP
+def defaultXMP(folderpath, fullpath, filetype, CR2XMP, ARWXMP):
+    filename = fullpath.replace(folderpath, "").replace(".xmp", "")
+
+    # if file is a CR2
+    if filetype == "CR2":
+        shutil.copy2(CR2XMP, fullpath)
+        f_tmp = open(fullpath + "_tmp", "w")
+
+        with open(fullpath, 'r') as f:
+            for line in f:
+                if "RawFileName" in line:
+                    f_tmp.write("   crs:RawFileName=\"" + filename + "\">")
+                else:
+                    f_tmp.write(line)
+    # if file is an ARW
+    elif filetype == "ARW":
+        shutil.copy2(ARWXMP, fullpath)
+        f_tmp = open(fullpath + "_tmp", "w")
+
+        with open(fullpath, 'r') as f:
+            for line in f:
+                if "RawFileName" in line:
+                    f_tmp.write("   crs:RawFileName=\"" + filename + "\">")
+                else:
+                    f_tmp.write(line)
+    else:
+        print("ERROR CANNOT FIND FILETYPE")
+
+    f.close()
+    f_tmp.close()
+    remove(fullpath)
+    rename(fullpath + '_tmp', fullpath)
 
 # opens JPG and returns pixel array
 def openJPG(path):
