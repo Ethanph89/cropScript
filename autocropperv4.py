@@ -11,7 +11,10 @@ from tkinter import *
 from pathlib import Path
 import shutil
 import sys
+from colormath.color_objects import LabColor, XYZColor, sRGBColor, AdobeRGBColor
+from colormath.color_conversions import convert_color
 np.set_printoptions(threshold=sys.maxsize)
+
 
 # XMP FILE DIRECTIONS DON'T CORRESPOND TO WHAT YOU THINK:
 #   LEFT SIDE OF IMAGE => XMP TOP
@@ -20,8 +23,10 @@ np.set_printoptions(threshold=sys.maxsize)
 #   BOTTOM OF IMAGE => XMP LEFT
 #   BOTTOM LEFT OF IMAGE IS (0,0)
 
+
 # MAIN
 def main():
+
 
     # CONSTANTS
     # Close up const
@@ -31,18 +36,25 @@ def main():
     # Far away const
     CONST_IS_FAR = 6000
     CONST_PERCENT_ABOVE_HAIR_FAR = .07
-    CONST_PERCENT_BELOW_CHIN_FAR = .50
+    CONST_PERCENT_BELOW_CHIN_FAR = .42
 
     CONST_AVERAGE_TO_CROP = 50
 
     CONST_CR2XMP = "J:/_CropScript/CR2template.xmp"
     CONST_ARWXMP = "J:/_CropScript/ARWtemplate.xmp"
 
+
     # creates a data.csv file that contains all cropping info
     f = open("data.csv", "w")
     f.write('image' + ',' + 'tophead' + ',' + 'topcrop' + ',' + 'bottomcrop' + ',' + 'leftcrop' + ',' + 'rightcrop' +
             ',' + 'toneR' + ',' + 'toneG' + ',' + 'toneB' '\n')
     f.close()
+
+    # sets intial tone values
+    toneCount = 0
+    rTone = 0
+    gTone = 0
+    bTone = 0
 
     # defines path to JPGs and finds RAW file type
     # user selects JPG folder
@@ -169,9 +181,76 @@ def main():
 
         # find skin tone
         tone = skinToneAverage(pixelArray, BoundingBoxJSON, BBTop, BBBottom)
+        toneCount = toneCount + 1
+        rTone = rTone + tone[0]
+        gTone = gTone + tone[1]
+        bTone = bTone + tone[2]
+
+        # applies Shoob default color corrections
+        defaultColor(xmpPath)
 
         # copies data to csv
-        printInformation(jpgPath, hairCoords, cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, tone)
+        #printInformation(jpgPath, hairCoords, cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, tone)
+
+    # finds average tone for entire school
+    toneSchool = [0, 0, 0]
+    toneSchool[0] = round(rTone/toneCount)
+    toneSchool[1] = round(gTone / toneCount)
+    toneSchool[2] = round(bTone / toneCount)
+    print("R: " + str(toneSchool[0]) + " " + "G: " + str(toneSchool[1]) + " " + "B: " + str(toneSchool[2]))
+
+    # uses mathColor to convert between RGB and Lab values
+    rgb = sRGBColor(toneSchool[0], toneSchool[1], toneSchool[2])
+    xyz = convert_color(rgb, XYZColor, target_illuminant='d50')
+    lab = convert_color(xyz, LabColor).get_value_tuple()
+
+    # converts lab values into workable numbers
+    convertedLab = [lab[0], lab[1], lab[2]]
+    convertedLab[0] = round(int(convertedLab[0]) / 100)
+    convertedLab[1] = round(int(convertedLab[1]) / 100)
+    convertedLab[2] = round(int(convertedLab[2]) / 100)
+    print("L: " + str(convertedLab[0]) + " " + "a: " + str(convertedLab[1]) + " " + "b: " + str(convertedLab[2]))
+
+    print("Initial cropping/coloring finished successfully...")
+
+    pathlistTwo = Path(pathToFolder).glob('**/*.jpg')
+
+    for path in pathlistTwo:
+        path_in_str = str(path)
+
+        # redefining the paths out of the folder
+        xmpPath = path_in_str.replace('_JPG_CROP', '').replace('.jpg', '.xmp')
+        jpgPath = path_in_str
+
+        # redefining face and tone averages
+        faceFeaturesJSON = rekognitionRequest(jpgPath)
+        awsMasterOutput = parse_aws_output(faceFeaturesJSON)
+        pixelArray = openJPG(jpgPath)
+        BoundingBoxJSON = awsMasterOutput[0]
+        BBTop = BoundingBoxJSON.get("Top")
+        BBBottom = BBTop + BoundingBoxJSON.get("Height")
+
+        itone = skinToneAverage(pixelArray, BoundingBoxJSON, BBTop, BBBottom)
+        #print("itone: " + str(itone))
+
+        # finding individual color values
+        irgb = sRGBColor(itone[0], itone[1], itone[2])
+        ixyz = convert_color(irgb, XYZColor, target_illuminant='d50')
+        ilab = convert_color(ixyz, LabColor).get_value_tuple()
+        iconvertedLab = [ilab[0], ilab[1], ilab[2]]
+        iconvertedLab[0] = round(int(iconvertedLab[0]) / 100)
+        iconvertedLab[1] = round(int(iconvertedLab[1]) / 100)
+        iconvertedLab[2] = round(int(iconvertedLab[2]) / 100)
+
+        print("iL: " + str(iconvertedLab[0]) + " " + "ia: " + str(iconvertedLab[1]) + " " + "ib: " + str(iconvertedLab[2]))
+
+        # colors according to school average
+        iVal = schoolColor(xmpPath, convertedLab[0])
+
+        # colors according to individual average
+        individualColor(xmpPath, iconvertedLab[0], iVal[0], iVal[1], iVal[2], convertedLab[0])
+
+    print("School/individual coloring finished successfully!")
 
 
 # BODY FUNCTIONS
@@ -384,6 +463,205 @@ def skinToneAverage(pixelArray, boundingBox, BBTop, BBBottom):
 
     #print(skinAverage)
     return skinAverage
+
+# applies the shoob default color corrections
+def defaultColor(path):
+    f_tmp = open(path + '_tmp', 'w')
+
+    # goes line by line until 'HasCrop' is found
+    with open(path, 'r') as f:
+        for line in f:
+            if "HasSettings" in line:
+                f_tmp.write("   crs:Version=\"11.2\"\n")
+                f_tmp.write("   crs:ProcessVersion=\"11.0\"\n")
+                f_tmp.write("   crs:WhiteBalance=\"Custom\"\n")
+                f_tmp.write("   crs:Temperature=\"4937\"\n")
+                f_tmp.write("   crs:Tint=\"+5.2\"\n")
+                f_tmp.write("   crs:Saturation=\"7\"\n")
+                f_tmp.write("   crs:Sharpness=\"40\"\n")
+                f_tmp.write("   crs:LuminanceSmoothing=\"0\"\n")
+                f_tmp.write("   crs:ColorNoiseReduction=\"25\"\n")
+                f_tmp.write("   crs:VignetteAmount=\"0\"\n")
+                f_tmp.write("   crs:ShadowTint=\"0\"\n")
+                f_tmp.write("   crs:RedHue=\"0\"\n")
+                f_tmp.write("   crs:RedSaturation=\"0\"\n")
+                f_tmp.write("   crs:GreenHue=\"0\"\n")
+                f_tmp.write("   crs:GreenSaturation=\"0\"\n")
+                f_tmp.write("   crs:BlueHue=\"0\"\n")
+                f_tmp.write("   crs:BlueSaturation=\"0\"\n")
+                f_tmp.write("   crs:Vibrance=\"5\"\n")
+                f_tmp.write("   crs:HueAdjustmentRed=\"0\"\n")
+                f_tmp.write("   crs:HueAdjustmentOrange=\"0\"\n")
+                f_tmp.write("   crs:HueAdjustmentYellow=\"0\"\n")
+                f_tmp.write("   crs:HueAdjustmentGreen=\"0\"\n")
+                f_tmp.write("   crs:HueAdjustmentAqua=\"0\"\n")
+                f_tmp.write("   crs:HueAdjustmentBlue=\"0\"\n")
+                f_tmp.write("   crs:HueAdjustmentPurple=\"0\"\n")
+                f_tmp.write("   crs:HueAdjustmentMagenta=\"0\"\n")
+                f_tmp.write("   crs:SaturationAdjustmentRed=\"0\"\n")
+                f_tmp.write("   crs:SaturationAdjustmentOrange=\"0\"\n")
+                f_tmp.write("   crs:SaturationAdjustmentYellow=\"0\"\n")
+                f_tmp.write("   crs:SaturationAdjustmentGreen=\"0\"\n")
+                f_tmp.write("   crs:SaturationAdjustmentAqua=\"0\"\n")
+                f_tmp.write("   crs:SaturationAdjustmentBlue=\"0\"\n")
+                f_tmp.write("   crs:SaturationAdjustmentPurple=\"0\"\n")
+                f_tmp.write("   crs:SaturationAdjustmentMagenta=\"0\"\n")
+                f_tmp.write("   crs:LuminanceAdjustmentRed=\"0\"\n")
+                f_tmp.write("   crs:LuminanceAdjustmentOrange=\"0\"\n")
+                f_tmp.write("   crs:LuminanceAdjustmentYellow=\"0\"\n")
+                f_tmp.write("   crs:LuminanceAdjustmentGreen=\"0\"\n")
+                f_tmp.write("   crs:LuminanceAdjustmentAqua=\"0\"\n")
+                f_tmp.write("   crs:LuminanceAdjustmentBlue=\"0\"\n")
+                f_tmp.write("   crs:LuminanceAdjustmentPurple=\"0\"\n")
+                f_tmp.write("   crs:LuminanceAdjustmentMagenta=\"0\"\n")
+                f_tmp.write("   crs:SplitToningShadowHue=\"0\"\n")
+                f_tmp.write("   crs:SplitToningShadowSaturation=\"0\"\n")
+                f_tmp.write("   crs:SplitToningHighlightHue=\"0\"\n")
+                f_tmp.write("   crs:SplitToningHighlightSaturation=\"0\"\n")
+                f_tmp.write("   crs:SplitToningBalance=\"0\"\n")
+                f_tmp.write("   crs:ParametricShadows=\"0\"\n")
+                f_tmp.write("   crs:ParametricDarks=\"0\"\n")
+                f_tmp.write("   crs:ParametricLights=\"0\"\n")
+                f_tmp.write("   crs:ParametricHighlights=\"0\"\n")
+                f_tmp.write("   crs:ParametricShadowSplit=\"25\"\n")
+                f_tmp.write("   crs:ParametricMidtoneSplit=\"50\"\n")
+                f_tmp.write("   crs:ParametricHighlightSplit=\"75\"\n")
+                f_tmp.write("   crs:SharpenRadius=\"+1.0\"\n")
+                f_tmp.write("   crs:SharpenDetail=\"25\"\n")
+                f_tmp.write("   crs:SharpenEdgeMasking=\"0\"\n")
+                f_tmp.write("   crs:PostCropVignetteAmount=\"0\"\n")
+                f_tmp.write("   crs:GrainAmount=\"0\"\n")
+                f_tmp.write("   crs:ColorNoiseReductionDetail=\"50\"\n")
+                f_tmp.write("   crs:ColorNoiseReductionSmoothness=\"50\"\n")
+                f_tmp.write("   crs:LensProfileEnable=\"0\"\n")
+                f_tmp.write("   crs:LensManualDistortionAmount=\"0\"\n")
+                f_tmp.write("   crs:PerspectiveVertical=\"0\"\n")
+                f_tmp.write("   crs:PerspectiveHorizontal=\"0\"\n")
+                f_tmp.write("   crs:PerspectiveRotate=\"0.0\"\n")
+                f_tmp.write("   crs:PerspectiveScale=\"100\"\n")
+                f_tmp.write("   crs:PerspectiveAspect=\"0\"\n")
+                f_tmp.write("   crs:PerspectiveUpright=\"0\"\n")
+                f_tmp.write("   crs:PerspectiveX=\"0.00\"\n")
+                f_tmp.write("   crs:PerspectiveY=\"0.00\"\n")
+                f_tmp.write("   crs:AutoLateralCA=\"0\"\n")
+                f_tmp.write("   crs:Exposure2012=\"+0.379\"\n")
+                f_tmp.write("   crs:Contrast2012=\"0\"\n")
+                f_tmp.write("   crs:Highlights2012=\"-20\"\n")
+                f_tmp.write("   crs:Shadows2012=\"+30\"\n")
+                f_tmp.write("   crs:Whites2012=\"-20\"\n")
+                f_tmp.write("   crs:Blacks2012=\"+30\"\n")
+                f_tmp.write("   crs:Clarity2012=\"0\"\n")
+                f_tmp.write("   crs:DefringePurpleAmount=\"0\"\n")
+                f_tmp.write("   crs:DefringePurpleHueLo=\"30\"\n")
+                f_tmp.write("   crs:DefringePurpleHueHi=\"70\"\n")
+                f_tmp.write("   crs:DefringeGreenAmount=\"0\"\n")
+                f_tmp.write("   crs:DefringeGreenHueLo=\"40\"\n")
+                f_tmp.write("   crs:DefringeGreenHueHi=\"60\"\n")
+                f_tmp.write("   crs:Dehaze=\"0\"\n")
+                f_tmp.write("   crs:ToneMapStrength=\"0\"\n")
+                f_tmp.write("   crs:ConvertToGrayscale=\"False\"\n")
+                f_tmp.write("   crs:OverrideLookVignette=\"False\"\n")
+                f_tmp.write("   crs:ToneCurveName=\"Medium Contrast\"\n")
+                f_tmp.write("   crs:ToneCurveName2012=\"Linear\"\n")
+                f_tmp.write("   crs:CameraProfile=\"Adobe Standard\"\n")
+                f_tmp.write("   crs:CameraProfileDigest=\"41F68367DA3B31B07AB631D81D0E942D\"\n")
+                f_tmp.write("   crs:LensProfileSetup=\"LensDefaults\"\n")
+                f_tmp.write("   crs:UprightVersion=\"151388160\"\n")
+                f_tmp.write("   crs:UprightCenterMode=\"0\"\n")
+                f_tmp.write("   crs:UprightCenterNormX=\"0.5\"\n")
+                f_tmp.write("   crs:UprightCenterNormY=\"0.5\"\n")
+                f_tmp.write("   crs:UprightFocalMode=\"0\"\n")
+                f_tmp.write("   crs:UprightFocalLength35mm=\"35\"\n")
+                f_tmp.write("   crs:UprightPreview=\"False\"\n")
+                f_tmp.write("   crs:UprightTransformCount=\"6\"\n")
+                f_tmp.write("   crs:UprightFourSegmentsCount=\"0\"\n")
+                f_tmp.write("   crs:HasSettings=\"True\"\n")
+            else:
+                f_tmp.write(line)
+        f.close()
+        f_tmp.close()
+        remove(path)
+        rename(path + '_tmp', path)
+
+# colors based on school averages
+def schoolColor(path, Lval):
+    if Lval >= 45:
+        exp = 0.175
+        temper = 5000
+        tint = 5
+        print("Light school")
+    elif Lval >= 35 and Lval < 45:
+        exp = 0.375
+        temper = 5000
+        tint = 5
+        print("Tan school")
+    else:
+        exp = 0.5
+        temper = 4750
+        tint = 2
+        print("Dark school")
+
+    f_tmp = open(path + '_tmp', 'w')
+
+    with open(path, 'r') as f:
+        for line in f:
+            if "crs:Exposure2012=" in line:
+                f_tmp.write("   crs:Exposure2012=\"" + str(exp) + "\"\n")
+            elif "crs:Temperature" in line:
+                f_tmp.write("   crs:Temperature=\"" + str(temper) + "\"\n")
+            elif "crs:Tint" in line:
+                f_tmp.write("   crs:Tint=\"" + str(tint) + "\"\n")
+            else:
+                f_tmp.write(line)
+        f.close()
+        f_tmp.close()
+        remove(path)
+        rename(path + '_tmp', path)
+
+    return exp, temper, tint
+
+# colors based on individual values
+def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool):
+    #print(Lval)
+    print(path)
+    if Lval <= (LvalSchool + 2) and  Lval >= (LvalSchool - 2):
+        print("Individual matches school type")
+        exp = expSchool
+        temper = temperSchool
+        tint = tintSchool
+    else:
+        if Lval >= 45:
+            exp = expSchool * 0.9
+            temper = temperSchool * 1
+            tint = tintSchool * 1
+            print("Light individual")
+        elif Lval >= 35 and Lval < 45:
+            exp = expSchool
+            temper = temperSchool
+            tint = tintSchool
+            print("Different tan individual")
+        else:
+            exp = expSchool * 1.1
+            temper = temperSchool * 1
+            tint = tintSchool * 1
+            print("Dark individual")
+
+    f_tmp = open(path + '_tmp', 'w')
+
+    with open(path, 'r') as f:
+        for line in f:
+            if "crs:Exposure2012=" in line:
+                f_tmp.write("   crs:Exposure2012=\"" + str(exp) + "\"\n")
+            elif "crs:Temperature" in line:
+                f_tmp.write("   crs:Temperature=\"" + str(temper) + "\"\n")
+            elif "crs:Tint" in line:
+                f_tmp.write("   crs:Tint=\"" + str(tint) + "\"\n")
+            else:
+                f_tmp.write(line)
+        f.close()
+        f_tmp.close()
+        remove(path)
+        rename(path + '_tmp', path)
 
 # copies crop info to data.csv
 def printInformation(img_name, hairCoords, cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, tone):
