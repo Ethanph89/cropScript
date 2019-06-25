@@ -50,6 +50,10 @@ def main():
             ',' + 'toneR' + ',' + 'toneG' + ',' + 'toneB' '\n')
     f.close()
 
+    b = open("colordata.csv", "w")
+    b.write('image' + ',' + 'toneR' + ',' + 'toneG' + ',' + 'toneB' + ',' + 'L' + ',' + 'a' + ',' + 'b' '\n')
+    b.close()
+
     # sets intial tone values
     toneCount = 0
     rTone = 0
@@ -190,7 +194,7 @@ def main():
         defaultColor(xmpPath)
 
         # copies data to csv
-        #printInformation(jpgPath, hairCoords, cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, tone)
+        printInformation(jpgPath, hairCoords, cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, tone)
 
     # finds average tone for entire school
     toneSchool = [0, 0, 0]
@@ -249,6 +253,9 @@ def main():
 
         # colors according to individual average
         individualColor(xmpPath, iconvertedLab[0], iVal[0], iVal[1], iVal[2], convertedLab[0])
+
+        # copies data to csv
+        printColorInformation(jpgPath, itone, iconvertedLab)
 
     print("School/individual coloring finished successfully!")
 
@@ -345,7 +352,7 @@ def getAverageBackgroundColor(pixelArray):
     gNum = 0
     bNum = 0
 
-    for i in range(100):
+    for i in range(75):
         for pixel in pixelArray[i]:
             rSum += pixel[0]
             gSum += pixel[1]
@@ -369,25 +376,48 @@ def findTopOfHair(pixelArray, boundingBox, averageBackgroundColor, averageToCrop
         (pixelArray.shape[1] * boundingBox.get("Left")) + (pixelArray.shape[1] * boundingBox.get("Width")))
     BBWidth = rigthBBInPixels - leftBBInPixels
 
+    print(averageBackgroundColor[2])
+
     # compares read in pixels to average value row by row until it finds an average bigger than averageToCrop
-    rowNum = 0
-    for row in pixelArray:
-        rSum = 0
-        gSum = 0
-        bSum = 0
-        totalDiff = 0
-        for i in range(leftBBInPixels, rigthBBInPixels):
-            rSum += row[i][0]
-            gSum += row[i][1]
-            bSum += row[i][2]
-        tempRowAverage = [rSum / BBWidth, gSum / BBWidth, bSum / BBWidth]
-        for j in range(3):
-            totalDiff += abs(averageBackgroundColor[j] - tempRowAverage[j])
-        rowNum += 1
-        if (totalDiff > averageToCrop):
-            break
+    # for blue backgrounds
+    if averageBackgroundColor[2] >= 125:
+        rowNum = 0
+        for row in pixelArray:
+            rSum = 0
+            gSum = 0
+            bSum = 0
+            for i in range(leftBBInPixels, rigthBBInPixels):
+                rSum += row[i][0]
+                gSum += row[i][1]
+                bSum += row[i][2]
+            #print(bSum)
+            #print(BBWidth)
+            tempRowAverage = [rSum / BBWidth, gSum / BBWidth, bSum / BBWidth]
+            print(tempRowAverage)
+            rowNum += 1
+            if (tempRowAverage[2] < 100) or (tempRowAverage[0] > 100 and tempRowAverage[1] > 100 and tempRowAverage[2] > 100):
+                break
+    # for greenscreen backgrounds
+    else:
+        rowNum = 0
+        for row in pixelArray:
+            rSum = 0
+            gSum = 0
+            bSum = 0
+            totalDiff = 0
+            for i in range(leftBBInPixels, rigthBBInPixels):
+                rSum += row[i][0]
+                gSum += row[i][1]
+                bSum += row[i][2]
+            tempRowAverage = [rSum / BBWidth, gSum / BBWidth, bSum / BBWidth]
+            for j in range(3):
+                totalDiff += abs(averageBackgroundColor[j] - tempRowAverage[j])
+            rowNum += 1
+            if (totalDiff > averageToCrop):
+                break
 
     # defines hair position percent by the row / total rows
+    print("next image")
     hairPosition = rowNum / pixelArray.shape[0]
     return hairPosition
 
@@ -669,6 +699,13 @@ def printInformation(img_name, hairCoords, cropCoordsTop, cropCoordsBottom, crop
     d.write(str(img_name) + ',' + str(hairCoords) + ',' + str(cropCoordsTop) + ',' + str(cropCoordsBottom) + ',' +
             str(cropLeft) + ',' + str(cropRight) + ',' + str(round(tone[0])) + ',' + str(round(tone[1])) + ',' +
             str(round(tone[2])) + '\n')
+    d.close()
+
+# copies color info to colordata.csv
+def printColorInformation(img_name, tone, lab):
+    d = open("colordata.csv", "a")
+    d.write(str(img_name) + ',' + str(round(tone[0])) + ',' + str(round(tone[1])) + ',' +
+            str(round(tone[2])) + ',' + str(lab[0]) + ',' + str(lab[1]) + ',' + str(lab[2]) + '\n')
     d.close()
 
 # runs main
