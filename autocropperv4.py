@@ -43,17 +43,6 @@ def main():
     CONST_CR2XMP = "J:/_CropScript/CR2template.xmp"
     CONST_ARWXMP = "J:/_CropScript/ARWtemplate.xmp"
 
-
-    # creates a data.csv file that contains all cropping info
-    f = open("data.csv", "w")
-    f.write('image' + ',' + 'tophead' + ',' + 'topcrop' + ',' + 'bottomcrop' + ',' + 'leftcrop' + ',' + 'rightcrop' +
-            ',' + 'toneR' + ',' + 'toneG' + ',' + 'toneB' '\n')
-    f.close()
-
-    b = open("colordata.csv", "w")
-    b.write('image' + ',' + 'toneR' + ',' + 'toneG' + ',' + 'toneB' + ',' + 'L' + ',' + 'a' + ',' + 'b' '\n')
-    b.close()
-
     # sets intial tone values
     toneCount = 0
     rTone = 0
@@ -89,6 +78,20 @@ def main():
     print(filetype)
 
     pathlist = Path(pathToFolder).glob('**/*.jpg')
+    folderPath = pathToFolder.replace('_JPG_CROP', '')
+    #print('path to folder: ' + folderPath)
+
+    # creates a data.csv file that contains all cropping info
+    f = open(folderPath + "/" + "data.csv", "w")
+    f.write(
+        'image' + ',' + 'tophead' + ',' + 'topcrop' + ',' + 'bottomcrop' + ',' + 'leftcrop' + ',' + 'rightcrop' +
+        ',' + 'toneR' + ',' + 'toneG' + ',' + 'toneB' '\n')
+    f.close()
+
+    # creates a data.csv file that contains all color info
+    b = open(folderPath + "/" + "colordata.csv", "w")
+    b.write('image' + ',' + 'toneR' + ',' + 'toneG' + ',' + 'toneB' + ',' + 'L' + ',' + 'a' + ',' + 'b' '\n')
+    b.close()
 
     # goes through each JPG individually
     for path in pathlist:
@@ -99,8 +102,6 @@ def main():
         #print('path to jpg: ' + jpgPath)
         xmpPath = path_in_str.replace('_JPG_CROP', '').replace('.jpg', '.xmp')
         #print('path to xmp: ' + xmpPath)
-        folderPath = pathToFolder.replace('_JPG_CROP', '')
-        #print('path to folder: ' + folderPath)
 
         # initializes default XMP
         defaultXMP(folderPath, xmpPath, filetype, CONST_CR2XMP, CONST_ARWXMP)
@@ -194,7 +195,7 @@ def main():
         defaultColor(xmpPath)
 
         # copies data to csv
-        printInformation(jpgPath, hairCoords, cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, tone)
+        printInformation(jpgPath, hairCoords, cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, tone, folderPath)
 
     # finds average tone for entire school
     toneSchool = [0, 0, 0]
@@ -255,7 +256,7 @@ def main():
         individualColor(xmpPath, iconvertedLab[0], iVal[0], iVal[1], iVal[2], convertedLab[0])
 
         # copies data to csv
-        printColorInformation(jpgPath, itone, iconvertedLab)
+        printColorInformation(jpgPath, itone, iconvertedLab, folderPath)
 
     print("School/individual coloring finished successfully!")
 
@@ -376,7 +377,7 @@ def findTopOfHair(pixelArray, boundingBox, averageBackgroundColor, averageToCrop
         (pixelArray.shape[1] * boundingBox.get("Left")) + (pixelArray.shape[1] * boundingBox.get("Width")))
     BBWidth = rigthBBInPixels - leftBBInPixels
 
-    print(averageBackgroundColor[2])
+    #print(averageBackgroundColor[2])
 
     # compares read in pixels to average value row by row until it finds an average bigger than averageToCrop
     # for blue backgrounds
@@ -393,7 +394,7 @@ def findTopOfHair(pixelArray, boundingBox, averageBackgroundColor, averageToCrop
             #print(bSum)
             #print(BBWidth)
             tempRowAverage = [rSum / BBWidth, gSum / BBWidth, bSum / BBWidth]
-            print(tempRowAverage)
+            #print(tempRowAverage)
             rowNum += 1
             if (tempRowAverage[2] < 100) or (tempRowAverage[0] > 100 and tempRowAverage[1] > 100 and tempRowAverage[2] > 100):
                 break
@@ -417,7 +418,7 @@ def findTopOfHair(pixelArray, boundingBox, averageBackgroundColor, averageToCrop
                 break
 
     # defines hair position percent by the row / total rows
-    print("next image")
+    #print("next image")
     hairPosition = rowNum / pixelArray.shape[0]
     return hairPosition
 
@@ -669,7 +670,7 @@ def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool)
             exp = expSchool
             temper = temperSchool
             tint = tintSchool
-            print("Different tan individual")
+            print("Tan individual")
         else:
             exp = expSchool * 1.1
             temper = temperSchool * 1
@@ -694,16 +695,17 @@ def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool)
         rename(path + '_tmp', path)
 
 # copies crop info to data.csv
-def printInformation(img_name, hairCoords, cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, tone):
-    d = open("data.csv", "a")
+def printInformation(img_name, hairCoords, cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, tone, folder):
+    d = open(folder + "/" + "data.csv", "a")
     d.write(str(img_name) + ',' + str(hairCoords) + ',' + str(cropCoordsTop) + ',' + str(cropCoordsBottom) + ',' +
             str(cropLeft) + ',' + str(cropRight) + ',' + str(round(tone[0])) + ',' + str(round(tone[1])) + ',' +
             str(round(tone[2])) + '\n')
     d.close()
+    print("mod data")
 
 # copies color info to colordata.csv
-def printColorInformation(img_name, tone, lab):
-    d = open("colordata.csv", "a")
+def printColorInformation(img_name, tone, lab, folder):
+    d = open(folder + "/" + "colordata.csv", "a")
     d.write(str(img_name) + ',' + str(round(tone[0])) + ',' + str(round(tone[1])) + ',' +
             str(round(tone[2])) + ',' + str(lab[0]) + ',' + str(lab[1]) + ',' + str(lab[2]) + '\n')
     d.close()
