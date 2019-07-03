@@ -30,8 +30,8 @@ def main():
 
     # CONSTANTS
     # Close up const
-    CONST_PERCENT_ABOVE_HAIR = .07
-    CONST_PERCENT_BELOW_CHIN = .24
+    CONST_PERCENT_ABOVE_HAIR = .09
+    CONST_PERCENT_BELOW_CHIN = .25
 
     # Far away const
     CONST_IS_FAR = 6000
@@ -55,7 +55,7 @@ def main():
     #print(pathToFolder)
 
     # find RAW file type
-    pathToType =  pathToFolder.replace('_JPG_CROP', '')
+    pathToType = pathToFolder.replace('_JPG_CROP', '')
     pathlistCR2 = Path(pathToType).glob('**/*.CR2')
     pathlistARW = Path(pathToType).glob('**/*.arw')
 
@@ -78,6 +78,7 @@ def main():
     print(filetype)
 
     pathlist = Path(pathToFolder).glob('**/*.jpg')
+    #print("pathlist: " + str(pathlist))
     folderPath = pathToFolder.replace('_JPG_CROP', '')
     #print('path to folder: ' + folderPath)
 
@@ -90,7 +91,8 @@ def main():
 
     # creates a data.csv file that contains all color info
     b = open(folderPath + "/" + "colordata.csv", "w")
-    b.write('image' + ',' + 'toneR' + ',' + 'toneG' + ',' + 'toneB' + ',' + 'L' + ',' + 'a' + ',' + 'b' '\n')
+    b.write('image' + ',' + 'toneR' + ',' + 'toneG' + ',' + 'toneB' + ',' + 'L' + ',' + 'a' + ',' + 'b' + ',' +
+            'schoolTone' + ',' + 'individualTone' '\n')
     b.close()
 
     # goes through each JPG individually
@@ -196,6 +198,7 @@ def main():
 
         # copies data to csv
         printInformation(jpgPath, hairCoords, cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, tone, folderPath)
+        print("Cropping...")
 
     # finds average tone for entire school
     toneSchool = [0, 0, 0]
@@ -253,10 +256,11 @@ def main():
         iVal = schoolColor(xmpPath, convertedLab[0])
 
         # colors according to individual average
-        individualColor(xmpPath, iconvertedLab[0], iVal[0], iVal[1], iVal[2], convertedLab[0])
+        csvTones = individualColor(xmpPath, iconvertedLab[0], iVal[0], iVal[1], iVal[2], convertedLab[0])
 
         # copies data to csv
-        printColorInformation(jpgPath, itone, iconvertedLab, folderPath)
+        printColorInformation(jpgPath, itone, iconvertedLab, folderPath, csvTones[0], csvTones[1])
+        print("Color correcting...")
 
     print("School/individual coloring finished successfully!")
 
@@ -660,21 +664,31 @@ def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool)
         exp = expSchool
         temper = temperSchool
         tint = tintSchool
+
+        if LvalSchool >= 45:
+            iTone = "light"
+        elif LvalSchool >= 35 and LvalSchool < 45:
+            iTone = "tan"
+        else:
+            iTone = "dark"
     else:
         if Lval >= 45:
             exp = expSchool * 0.9
             temper = temperSchool * 1
             tint = tintSchool * 1
+            iTone = "light"
             print("Light individual")
         elif Lval >= 35 and Lval < 45:
             exp = expSchool
             temper = temperSchool
             tint = tintSchool
+            iTone = "tan"
             print("Tan individual")
         else:
             exp = expSchool * 1.1
             temper = temperSchool * 1
             tint = tintSchool * 1
+            iTone = "dark"
             print("Dark individual")
 
     f_tmp = open(path + '_tmp', 'w')
@@ -694,6 +708,15 @@ def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool)
         remove(path)
         rename(path + '_tmp', path)
 
+    if LvalSchool >= 45:
+        sTone = "light"
+    elif LvalSchool >= 35 and LvalSchool < 45:
+        sTone = "tan"
+    else:
+        sTone = "dark"
+
+    return sTone, iTone
+
 # copies crop info to data.csv
 def printInformation(img_name, hairCoords, cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, tone, folder):
     d = open(folder + "/" + "data.csv", "a")
@@ -701,13 +724,14 @@ def printInformation(img_name, hairCoords, cropCoordsTop, cropCoordsBottom, crop
             str(cropLeft) + ',' + str(cropRight) + ',' + str(round(tone[0])) + ',' + str(round(tone[1])) + ',' +
             str(round(tone[2])) + '\n')
     d.close()
-    print("mod data")
+    #print("mod data")
 
 # copies color info to colordata.csv
-def printColorInformation(img_name, tone, lab, folder):
+def printColorInformation(img_name, tone, lab, folder, schoolTone, iTone):
     d = open(folder + "/" + "colordata.csv", "a")
     d.write(str(img_name) + ',' + str(round(tone[0])) + ',' + str(round(tone[1])) + ',' +
-            str(round(tone[2])) + ',' + str(lab[0]) + ',' + str(lab[1]) + ',' + str(lab[2]) + '\n')
+            str(round(tone[2])) + ',' + str(lab[0]) + ',' + str(lab[1]) + ',' + str(lab[2]) + ',' + str(schoolTone) +
+            ',' + str(iTone) + '\n')
     d.close()
 
 # runs main
