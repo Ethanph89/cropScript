@@ -43,7 +43,9 @@ def main():
     CONST_CR2XMP = "J:/_CropScript/CR2template.xmp"
     CONST_ARWXMP = "J:/_CropScript/ARWtemplate.xmp"
 
-    # sets intial tone values
+    print("ALERT: Please make sure all relevant CSV files are closed before running this program")
+
+    # sets initial tone values
     toneCount = 0
     rTone = 0
     gTone = 0
@@ -55,12 +57,14 @@ def main():
     #print(pathToFolder)
 
     # find RAW file type
+    pathlistJPG = Path(pathToFolder).glob('**/*.jpg')
     pathToType = pathToFolder.replace('_JPG_CROP', '')
     pathlistCR2 = Path(pathToType).glob('**/*.CR2')
     pathlistARW = Path(pathToType).glob('**/*.arw')
 
     countCR2 = 0
     countARW = 0
+    countJPG = 0
 
     for path in pathlistCR2:
         countCR2 = countCR2 + 1
@@ -78,6 +82,14 @@ def main():
     print(filetype)
 
     pathlist = Path(pathToFolder).glob('**/*.jpg')
+
+    for path in pathlistJPG:
+        countJPG += 1
+
+    if countJPG == 0:
+        print("ALERT: It appears you selected the wrong folder. Please try again selecting the JPG_CROP folder")
+        return
+
     #print("pathlist: " + str(pathlist))
     folderPath = pathToFolder.replace('_JPG_CROP', '')
     #print('path to folder: ' + folderPath)
@@ -133,7 +145,7 @@ def main():
         BBTop = BoundingBoxJSON.get("Top")
         BBBottom = BBTop + BoundingBoxJSON.get("Height")
 
-        # uses width of head to make average despairities easier to find
+        # uses width of head to make average disparities easier to find
         leftBBInPixels = (int)(pixelArray.shape[1] * BoundingBoxJSON.get("Left"))
         rigthBBInPixels = (int)(
             (pixelArray.shape[1] * BoundingBoxJSON.get("Left")) + (
@@ -203,8 +215,8 @@ def main():
     # finds average tone for entire school
     toneSchool = [0, 0, 0]
     toneSchool[0] = round(rTone/toneCount)
-    toneSchool[1] = round(gTone / toneCount)
-    toneSchool[2] = round(bTone / toneCount)
+    toneSchool[1] = round(gTone/toneCount)
+    toneSchool[2] = round(bTone/toneCount)
     print("R: " + str(toneSchool[0]) + " " + "G: " + str(toneSchool[1]) + " " + "B: " + str(toneSchool[2]))
 
     # uses mathColor to convert between RGB and Lab values
