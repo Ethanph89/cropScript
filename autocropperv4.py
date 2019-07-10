@@ -30,7 +30,7 @@ def main():
 
     # CONSTANTS
     # Close up const
-    CONST_PERCENT_ABOVE_HAIR = .09
+    CONST_PERCENT_ABOVE_HAIR = .07
     CONST_PERCENT_BELOW_CHIN = .25
 
     # Far away const
@@ -210,7 +210,7 @@ def main():
 
         # copies data to csv
         printInformation(jpgPath, hairCoords, cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, tone, folderPath)
-        print("Cropping...")
+        print("Cropping..." + xmpPath)
 
     # finds average tone for entire school
     toneSchool = [0, 0, 0]
@@ -397,7 +397,8 @@ def findTopOfHair(pixelArray, boundingBox, averageBackgroundColor, averageToCrop
 
     # compares read in pixels to average value row by row until it finds an average bigger than averageToCrop
     # for blue backgrounds
-    if averageBackgroundColor[2] >= 125:
+    if averageBackgroundColor[2] >= 125 and averageBackgroundColor[0] < 75:
+        print("blue")
         rowNum = 0
         for row in pixelArray:
             rSum = 0
@@ -414,8 +415,81 @@ def findTopOfHair(pixelArray, boundingBox, averageBackgroundColor, averageToCrop
             rowNum += 1
             if (tempRowAverage[2] < 100) or (tempRowAverage[0] > 100 and tempRowAverage[1] > 100 and tempRowAverage[2] > 100):
                 break
+
+    # for grey backgrounds
+    elif (averageBackgroundColor[0] > 50 and
+          ((averageBackgroundColor[1] < averageBackgroundColor[0] + 15) or
+           (averageBackgroundColor[1] > averageBackgroundColor[0] - 15)) and
+          ((averageBackgroundColor[2] < averageBackgroundColor[0] + 15) or
+           (averageBackgroundColor[2] > averageBackgroundColor[0] - 15))):
+        averageBackgroundColorTotal = averageBackgroundColor[0] + averageBackgroundColor[1] + averageBackgroundColor[2]
+        averageBackgroundColorTotalP = averageBackgroundColorTotal + 80
+        averageBackgroundColorTotalM = averageBackgroundColorTotal - 80
+        print("grey")
+        rowNum = 0
+        # totalbreak loop
+        for row in pixelArray:
+            rSum = 0
+            gSum = 0
+            bSum = 0
+            totalDiff = 0
+            for i in range(leftBBInPixels, rigthBBInPixels):
+                rSum += row[i][0]
+                gSum += row[i][1]
+                bSum += row[i][2]
+            tempRowAverage = [rSum / BBWidth, gSum / BBWidth, bSum / BBWidth]
+            tempRowAverageTotal = tempRowAverage[0] + tempRowAverage[1] + tempRowAverage[2]
+            for j in range(3):
+                totalDiff += abs(averageBackgroundColor[j] - tempRowAverage[j])
+            rowNum += 1
+            if (tempRowAverageTotal > averageBackgroundColorTotalP or
+                    tempRowAverageTotal < averageBackgroundColorTotalM):
+                totalbreak = rowNum
+                break
+        # redbreak loop
+        for row in pixelArray:
+            rSum = 0
+            gSum = 0
+            bSum = 0
+            totalDiff = 0
+            for i in range(leftBBInPixels, rigthBBInPixels):
+                rSum += row[i][0]
+                gSum += row[i][1]
+                bSum += row[i][2]
+            tempRowAverage = [rSum / BBWidth, gSum / BBWidth, bSum / BBWidth]
+            tempRowAverageTotal = tempRowAverage[0] + tempRowAverage[1] + tempRowAverage[2]
+            for j in range(3):
+                totalDiff += abs(averageBackgroundColor[j] - tempRowAverage[j])
+            rowNum += 1
+            if (tempRowAverage[0] > averageBackgroundColor[0] + 25 or
+                    tempRowAverage[0] < averageBackgroundColor[0] - 25):
+                redbreak = rowNum
+                break
+
+        # find if totalbreak or redbreak is closer to head
+        print("Top of head: " + str(boundingBox.get("Top") * 480))
+        totalbreakDif = (boundingBox.get("Top") * 480) - totalbreak
+        if totalbreakDif < 0:
+            totalbreakDif = 999
+        print("Totalbreak: " + str(totalbreak))
+        redbreakDif = (boundingBox.get("Top") * 480) - redbreak
+        if redbreakDif < 0:
+            redbreakDif = 999
+        print("Redbreak: " + str(redbreak))
+
+        if totalbreakDif > redbreakDif and redbreakDif != 999 and redbreakDif < 40:
+            rowNum = redbreak - 7
+            print("using redbreak...")
+        elif totalbreakDif < redbreakDif and totalbreakDif != 999 and totalbreakDif < 40:
+            rowNum = totalbreak - 7
+            print("using totalbreak...")
+        else:
+            rowNum = int((boundingBox.get("Top") * 480) - 40)
+            print("using bb...")
+
     # for greenscreen backgrounds
     else:
+        print("green")
         rowNum = 0
         for row in pixelArray:
             rSum = 0
@@ -633,13 +707,13 @@ def defaultColor(path):
 # colors based on school averages
 def schoolColor(path, Lval):
     if Lval >= 45:
-        exp = 0.175
-        temper = 5000
+        exp = 0.195
+        temper = 5200
         tint = 5
         print("Light school")
     elif Lval >= 35 and Lval < 45:
         exp = 0.375
-        temper = 5000
+        temper = 5350
         tint = 5
         print("Tan school")
     else:
