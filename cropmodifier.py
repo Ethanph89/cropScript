@@ -17,6 +17,7 @@ np.set_printoptions(threshold=sys.maxsize)
 
 # MAIN
 def main():
+    print("Please select the _JPG_CROP folder of the rig you'd like to modify")
     pathToFolder = browse_button()
 
     pathlist = Path(pathToFolder).glob('**/*.jpg')
