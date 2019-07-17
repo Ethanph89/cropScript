@@ -43,7 +43,11 @@ def main():
         CONST_CR2XMP = "J:/_CropScript/CR2template.xmp"
         CONST_ARWXMP = "J:/_CropScript/ARWtemplate.xmp"
 
+        CONST_PARAM = "J:/_CropScript/parameters.txt"
+
+
         print("ALERT: Please make sure all relevant CSV files are closed before running this program")
+        params = readParams(CONST_PARAM)
 
         # sets initial tone values
         toneCount = 0
@@ -134,13 +138,10 @@ def main():
             BoundingBoxJSON = awsMasterOutput[0]
             #LandmarksJSON = awsMasterOutput[1]
             #OrientationCorrection = awsMasterOutput[2]
-
             # getting center of face
             faceCenterPercentages = centerOfBoundingBox(BoundingBoxJSON)
-
             # gets average pixel color of first 100 rows
             averageBackgroundColor = getAverageBackgroundColor(pixelArray)
-
             # determines background color for entire rig based on first 5
             if bgCount < 5:
                 print("Calculating background: " + str(bgCount + 1))
@@ -163,16 +164,13 @@ def main():
                     bgType = 2
                     print("GREEN RIG")
                 bgCount += 1
-
             # finds percentage-based measure of top of head
             hairCoords = findTopOfHair(pixelArray, BoundingBoxJSON, bgType, CONST_AVERAGE_TO_CROP, averageBackgroundColor)
             #print(hairCoords)
             #print(bgType)
-
             # defines bounding box top and bottom
             BBTop = BoundingBoxJSON.get("Top")
             BBBottom = BBTop + BoundingBoxJSON.get("Height")
-
             # uses width of head to make average disparities easier to find
             leftBBInPixels = (int)(pixelArray.shape[1] * BoundingBoxJSON.get("Left"))
             rigthBBInPixels = (int)(
@@ -180,12 +178,10 @@ def main():
                             pixelArray.shape[1] * BoundingBoxJSON.get("Width")))
             topBBInPixels = (int)(pixelArray.shape[0] * BBTop)
             bottomBBInPixels = (int)(pixelArray.shape[0] * BBBottom)
-
             # finds BB dimensions
             BBWidthInPixels = rigthBBInPixels - leftBBInPixels
             BBHeightInPixels = bottomBBInPixels - topBBInPixels
             BBAreaInPixels = BBHeightInPixels * BBWidthInPixels
-
             # finds top and bottom crop depending on pose
             if (BBAreaInPixels > CONST_IS_FAR):
                 cropCoordsTop = hairCoords - CONST_PERCENT_ABOVE_HAIR
@@ -193,7 +189,6 @@ def main():
             else:
                 cropCoordsTop = hairCoords - CONST_PERCENT_ABOVE_HAIR_FAR
                 cropCoordsBottom = CONST_PERCENT_BELOW_CHIN_FAR + BBBottom
-
             # finds all dimensions and crop coords for XMP
             totalCropHeight = cropCoordsBottom - cropCoordsTop
             cropHeightPixels = totalCropHeight * pixelArray.shape[0]
@@ -201,41 +196,33 @@ def main():
             cropWidth = cropWidthPixels / pixelArray.shape[1]
             cropLeft = faceCenterPercentages[0] - (cropWidth / 2)
             cropRight = faceCenterPercentages[0] + (cropWidth / 2)
-
             # ensures all crops are within range
             if cropLeft < 0:
                 cropLeft = 0
             if cropLeft > 1:
                 cropLeft = 1
-
             if cropRight > 1:
                 cropRight = 1
             if cropRight < 0:
                 cropRight = 0
-
             if cropCoordsTop > 1:
                 cropCoordsTop = 1
             if cropCoordsTop < 0:
                 cropCoordsTop = 0
-
             if cropCoordsBottom > 1:
                 cropCoordsBottom = 1
             if cropCoordsBottom < 0:
                 cropCoordsBottom = 0
-
             # makes the XMP file
             makeXMP(cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, xmpPath)
-
             # find skin tone
             tone = skinToneAverage(pixelArray, BoundingBoxJSON, BBTop, BBBottom)
             toneCount = toneCount + 1
             rTone = rTone + tone[0]
             gTone = gTone + tone[1]
             bTone = bTone + tone[2]
-
             # applies Shoob default color corrections
             defaultColor(xmpPath)
-
             # copies data to csv
             printInformation(jpgPath, hairCoords, cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, tone, folderPath)
             print("Cropping " + xmpPath)
@@ -292,7 +279,7 @@ def main():
             print("iL: " + str(iConvertedLab[0]) + " " + "ia: " + str(iConvertedLab[1]) + " " + "ib: " + str(iConvertedLab[2]))
 
             # colors according to school average
-            iVal = schoolColor(xmpPath, convertedLab[0], convertedLab[1], convertedLab[2], bgType)
+            iVal = schoolColor(xmpPath, convertedLab[0], convertedLab[1], convertedLab[2], bgType, params)
 
             # colors according to individual average
             individualColor(xmpPath, iConvertedLab[0], iVal[0], iVal[1], iVal[2], convertedLab[0], bgType)
@@ -310,6 +297,42 @@ def main():
 # BODY FUNCTIONS
 
 # allows user to browse for a folder
+def readParams(file):
+    param_tmp = open(file, 'r')
+
+    with param_tmp as f:
+        for line in f:
+            if "bluetemp" in line:
+                blueTemp = int(line.replace('bluetemp = ', '').replace('\n', ''))
+            elif "bluetint" in line:
+                blueTint = float(line.replace('bluetint = ', '').replace('\n', ''))
+            elif "bluew" in line:
+                blueW = int(line.replace('bluew = ', '').replace('\n', ''))
+            elif "blueb" in line:
+                blueB = int(line.replace('blueb = ', '').replace('\n', ''))
+
+            elif "greytemp" in line:
+                greyTemp = int(line.replace('greytemp = ', '').replace('\n', ''))
+            elif "greytint" in line:
+                greyTint = float(line.replace('greytint = ', '').replace('\n', ''))
+            elif "greyw" in line:
+                greyW = int(line.replace('greyw = ', '').replace('\n', ''))
+            elif "greyb" in line:
+                greyB = int(line.replace('greyb = ', '').replace('\n', ''))
+
+            elif "greentemp" in line:
+                greenTemp = int(line.replace('greentemp = ', '').replace('\n', ''))
+            elif "greentint" in line:
+                greenTint = float(line.replace('greentint = ', '').replace('\n', ''))
+            elif "greenw" in line:
+                greenW = int(line.replace('greenw = ', '').replace('\n', ''))
+            elif "greenb" in line:
+                greenB = int(line.replace('greenb = ', '').replace('\n', ''))
+    f.close()
+
+    return blueTemp, blueTint, blueW, blueB, greyTemp, greyTint, greyW, greyB, greenTemp, greenTint, greenW, greenB
+
+
 def browse_button():
     # Allow user to select a directory and store it in global var
     # called folder_path
@@ -417,16 +440,16 @@ def getAverageBackgroundColor(pixelArray):
 # finds the background color
 def findBackgroundColor(averageBackgroundColor):
     # for blue backgrounds
-    if averageBackgroundColor[2] >= 125 and averageBackgroundColor[0] < 75:
+    if averageBackgroundColor[2] >= 80 and averageBackgroundColor[0] < 75:
         print("blue")
         bgType = 0
 
     # for grey backgrounds
     elif (averageBackgroundColor[0] > 65 and
-          ((averageBackgroundColor[1] < (averageBackgroundColor[0] + 15)) and
-           (averageBackgroundColor[1] > (averageBackgroundColor[0] - 15))) and
-          ((averageBackgroundColor[2] < (averageBackgroundColor[0] + 15)) and
-           (averageBackgroundColor[2] > (averageBackgroundColor[0] - 15)))):
+          ((averageBackgroundColor[1] < (averageBackgroundColor[0] + 35)) and
+           (averageBackgroundColor[1] > (averageBackgroundColor[0] - 35))) and
+          ((averageBackgroundColor[2] < (averageBackgroundColor[0] + 35)) and
+           (averageBackgroundColor[2] > (averageBackgroundColor[0] - 35)))):
         print("grey")
         bgType = 1
 
@@ -464,7 +487,7 @@ def findTopOfHair(pixelArray, boundingBox, bgType, averageToCrop, averageBackgro
             tempRowAverage = [rSum / BBWidth, gSum / BBWidth, bSum / BBWidth]
             #print(tempRowAverage)
             rowNum += 1
-            if (tempRowAverage[2] < 100) or (tempRowAverage[0] > 100 and tempRowAverage[1] > 100 and tempRowAverage[2] > 100):
+            if (tempRowAverage[2] < 80) or (tempRowAverage[0] > 100 and tempRowAverage[1] > 100 and tempRowAverage[2] > 100):
                 break
 
     # for grey backgrounds
@@ -528,10 +551,10 @@ def findTopOfHair(pixelArray, boundingBox, bgType, averageToCrop, averageBackgro
 
         # chooses which break to use for cropping
         if totalbreakDif > redbreakDif and redbreakDif != 999 and redbreakDif < 40:
-            rowNum = redbreak - 7
+            rowNum = redbreak - 10
             print("Using redbreak... ")
         elif totalbreakDif < redbreakDif and totalbreakDif != 999 and totalbreakDif < 40:
-            rowNum = totalbreak - 7
+            rowNum = totalbreak - 10
             print("Using totalbreak... ")
         else:
             rowNum = int((boundingBox.get("Top") * 480) - 40)
@@ -600,7 +623,6 @@ def rekognitionRequest(path):
     )
 
     image.close()
-
     return response
 
 # find average RGB values of skin tone
@@ -735,7 +757,7 @@ def defaultColor(path):
                 f_tmp.write("   crs:OverrideLookVignette=\"False\"\n")
                 f_tmp.write("   crs:ToneCurveName=\"Medium Contrast\"\n")
                 f_tmp.write("   crs:ToneCurveName2012=\"Linear\"\n")
-                f_tmp.write("   crs:CameraProfile=\"Adobe Standard\"\n")
+                f_tmp.write("   crs:CameraProfile=\"Adobe Portrait\"\n")
                 f_tmp.write("   crs:CameraProfileDigest=\"41F68367DA3B31B07AB631D81D0E942D\"\n")
                 f_tmp.write("   crs:LensProfileSetup=\"LensDefaults\"\n")
                 f_tmp.write("   crs:UprightVersion=\"151388160\"\n")
@@ -756,23 +778,29 @@ def defaultColor(path):
         rename(path + '_tmp', path)
 
 # colors based on school averages
-def schoolColor(path, Lval, aval, bval, bgType):
+def schoolColor(path, Lval, aval, bval, bgType, params):
     # sets XMP values based on if the background is blue grey or green
     # blue
     if bgType == 0:
         exp = ((55 - Lval) / 20)
-        temper = 5450
-        tint = 5
+        temper = params[0]
+        tint = params[1]
+        wh = params[2]
+        bl = params[3]
     # grey
     elif bgType == 1:
         exp = ((55 - Lval) / 20)
-        temper = 5000
-        tint = 5
+        temper = params[4]
+        tint = params[5]
+        wh = params[6]
+        bl = params[7]
     # green
     else:
         exp = ((55 - Lval) / 20)
-        temper = 5000
-        tint = 5
+        temper = params[8]
+        tint = params[9]
+        wh = params[10]
+        bl = params[11]
 
 
     f_tmp = open(path + '_tmp', 'w')
@@ -785,6 +813,10 @@ def schoolColor(path, Lval, aval, bval, bgType):
                 f_tmp.write("   crs:Temperature=\"" + str(temper) + "\"\n")
             elif "crs:Tint" in line:
                 f_tmp.write("   crs:Tint=\"" + str(tint) + "\"\n")
+            elif "crs:Whites2012=" in line:
+                f_tmp.write("   crs:Whites2012=\"" + str(wh) + "\"\n")
+            elif "crs:Blacks2012=" in line:
+                f_tmp.write("   crs:Blacks2012=\"" + str(bl) + "\"\n")
             else:
                 f_tmp.write(line)
         f.close()
@@ -792,7 +824,7 @@ def schoolColor(path, Lval, aval, bval, bgType):
         remove(path)
         rename(path + '_tmp', path)
 
-    return exp, temper, tint
+    return exp, temper, tint, wh, bl
 
 # colors based on individual values
 def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool, bgType):
@@ -806,11 +838,11 @@ def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool,
             temper = temperSchool
             tint = tintSchool
         elif Lval > (LvalSchool + 3):
-            exp = expSchool * .75
-            temper = temperSchool * 1.15
+            exp = expSchool * 1
+            temper = temperSchool * 1
             tint = tintSchool
         else:
-            exp = expSchool * 1.1
+            exp = expSchool * 1
             temper = temperSchool
             tint = tintSchool
     # grey individual color correction
@@ -820,11 +852,11 @@ def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool,
             temper = temperSchool
             tint = tintSchool
         elif Lval > (LvalSchool + 3):
-            exp = expSchool * .75
-            temper = temperSchool
+            exp = expSchool * 1
+            temper = temperSchool * 1
             tint = tintSchool
         else:
-            exp = expSchool * 1.1
+            exp = expSchool * 1
             temper = temperSchool
             tint = tintSchool
     # green individual color correction
@@ -834,11 +866,11 @@ def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool,
             temper = temperSchool
             tint = tintSchool
         elif Lval > (LvalSchool + 3):
-            exp = expSchool * .75
+            exp = expSchool * 1
             temper = temperSchool
             tint = tintSchool
         else:
-            exp = expSchool * 1.1
+            exp = expSchool * 1
             temper = temperSchool
             tint = tintSchool
 
