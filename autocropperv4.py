@@ -1,6 +1,7 @@
 # IMPORTS
 import json
 from os import rename, remove
+import os.path
 import PIL.Image
 from PIL import Image, ImageFilter, ImageShow
 import numpy as np
@@ -64,27 +65,8 @@ def main():
 
         # find RAW file type
         pathlistJPG = Path(pathToFolder).glob('**/*.jpg')
-        pathToType = pathToFolder.replace('_JPG_CROP', '')
-        pathlistCR2 = Path(pathToType).glob('**/*.CR2')
-        pathlistARW = Path(pathToType).glob('**/*.arw')
 
-        countCR2 = 0
-        countARW = 0
         countJPG = 0
-
-        for path in pathlistCR2:
-            countCR2 = countCR2 + 1
-        for path in pathlistARW:
-            countARW = countARW + 1
-
-        if countCR2 > countARW:
-            filetype = "CR2"
-        elif countARW > countCR2:
-            filetype = "ARW"
-        else:
-            filetype = "ERROR"
-
-        print(filetype)
 
         pathlist = Path(pathToFolder).glob('**/*.jpg')
 
@@ -126,6 +108,9 @@ def main():
             xmpPath = path_in_str.replace('_JPG_CROP', '').replace('.jpg', '.xmp')
             #print('path to xmp: ' + xmpPath)
 
+            # finds the file type (ARW/CR2)
+            filetype = findFiletype(xmpPath)
+
             # initializes default XMP
             defaultXMP(folderPath, xmpPath, filetype, CONST_CR2XMP, CONST_ARWXMP)
 
@@ -147,7 +132,7 @@ def main():
                 averageBackgroundColor = getAverageBackgroundColor(pixelArray)
 
                 # finds percentage-based measure of top of head
-                hairCoords = findTopOfHair(pixelArray, BoundingBoxJSON, bgType, CONST_AVERAGE_TO_CROP, averageBackgroundColor, folderPath, xmpPath)
+                hairCoords = findTopOfHair(pixelArray, BoundingBoxJSON, bgType[0], CONST_AVERAGE_TO_CROP, averageBackgroundColor, folderPath, xmpPath)
 
                 # defines bounding box top and bottom
                 BBTop = BoundingBoxJSON.get("Top")
@@ -168,11 +153,11 @@ def main():
 
                 # finds top and bottom crop depending on pose
                 if (BBAreaInPixels > CONST_IS_FAR):
-                    cropCoordsTop = hairCoords - CONST_PERCENT_ABOVE_HAIR
-                    cropCoordsBottom = CONST_PERCENT_BELOW_CHIN + BBBottom
+                    cropCoordsTop = hairCoords - (CONST_PERCENT_ABOVE_HAIR + bgType[1])
+                    cropCoordsBottom = (CONST_PERCENT_BELOW_CHIN + bgType[2]) + BBBottom
                 else:
-                    cropCoordsTop = hairCoords - CONST_PERCENT_ABOVE_HAIR_FAR
-                    cropCoordsBottom = CONST_PERCENT_BELOW_CHIN_FAR + BBBottom
+                    cropCoordsTop = hairCoords - (CONST_PERCENT_ABOVE_HAIR_FAR + bgType[1])
+                    cropCoordsBottom = (CONST_PERCENT_BELOW_CHIN_FAR + bgType[2]) + BBBottom
 
                 # finds all dimensions and crop coords for XMP
                 totalCropHeight = cropCoordsBottom - cropCoordsTop
@@ -279,10 +264,10 @@ def main():
                 print("iL: " + str(iConvertedLab[0]) + " " + "ia: " + str(iConvertedLab[1]) + " " + "ib: " + str(iConvertedLab[2]))
 
                 # colors according to school average
-                iVal = schoolColor(xmpPath, convertedLab[0], convertedLab[1], convertedLab[2], bgType, params)
+                iVal = schoolColor(xmpPath, convertedLab[0], convertedLab[1], convertedLab[2], bgType[0], params)
 
                 # colors according to individual average
-                individualColor(xmpPath, iConvertedLab[0], iVal[0], iVal[1], iVal[2], convertedLab[0], bgType)
+                individualColor(xmpPath, iConvertedLab[0], iVal[0], iVal[1], iVal[2], convertedLab[0], bgType[0])
 
                 # copies data to csv
                 printColorInformation(jpgPath, iTone, iConvertedLab, iVal, folderPath)
@@ -295,6 +280,22 @@ def main():
                         "contact Ethan")
 
 # BODY FUNCTIONS
+
+# finds which filetype a given XMP will apply to
+def findFiletype(xmp):
+    ARWpath = xmp.replace('.xmp', '.arw')
+    CR2path = xmp.replace('.xmp', '.cr2')
+
+    if os.path.exists(CR2path):
+        filetype = "CR2"
+    elif os.path.exists(ARWpath):
+        filetype = "ARW"
+    else:
+        filetype = "ERROR"
+
+    print(filetype)
+
+    return filetype
 
 # allows user to browse for a folder
 def readParams(file):
@@ -446,7 +447,9 @@ def getAverageBackgroundColor(pixelArray):
 
 # finds the background color
 def findBackgroundColor():
-    print("Please specify background color (blue, grey, green): ")
+    aboveHead = 0
+    belowChin = 0
+    print("Please specify background color (blue, grey, green, MYSA): ")
     background = input()
     # for blue backgrounds
     if background.lower() == "blue":
@@ -460,15 +463,32 @@ def findBackgroundColor():
 
     # for greenscreen backgrounds
     elif background.lower() == "green":
-        print("green")
+        print("Kids or Seniors? (K/S)")
+        aboveHead = input()
+        if aboveHead.lower() == "k":
+            aboveHead = .03
+        elif aboveHead.lower() == "s":
+            aboveHead = 0
+        else:
+            print("Input not recognized, please respecify specs.")
+            findBackgroundColor()
+
+        print(str(aboveHead) + " green")
         bgType = 2
+
+    # for grey backgrounds
+    elif background.lower() == "mysa":
+        print("MYSA")
+        bgType = 3
+        aboveHead = 0
+        belowChin = .0
 
     # catches non-recognized backgrounds
     else:
         print("Background type not recognized. Please re-enter.")
         bgType = findBackgroundColor()
 
-    return bgType
+    return bgType, aboveHead, belowChin
 
 # finds the top og the hair by comparing average RGB values to RGB values going down the image
 def findTopOfHair(pixelArray, boundingBox, bgType, averageToCrop, averageBackgroundColor, folder, imageName):
@@ -623,7 +643,7 @@ def findTopOfHair(pixelArray, boundingBox, bgType, averageToCrop, averageBackgro
             print("Using boundingbox...")
 
     # for greenscreen backgrounds
-    else:
+    elif bgType == 2:
         #print("green top")
         rowNum = 0
         for row in pixelArray:
@@ -664,6 +684,10 @@ def findTopOfHair(pixelArray, boundingBox, bgType, averageToCrop, averageBackgro
             if (greenDiff > averageToCrop):
                 rowNum += 15
                 break
+
+    # for MYSA
+    elif bgType == 3:
+        rowNum = int((boundingBox.get("Top") * 480) - 40)
 
     # defines hair position percent by the row / total rows
     #print("next image")
