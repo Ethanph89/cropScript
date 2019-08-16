@@ -28,29 +28,31 @@ np.set_printoptions(threshold=sys.maxsize)
 def main():
 
     try:
-        # CONSTANTS
-        # Close up const
+        # close up const
         CONST_PERCENT_ABOVE_HAIR = .09
         CONST_PERCENT_BELOW_CHIN = .23
 
-        # Far away const
+        # far away const
         CONST_IS_FAR = 6000
         CONST_PERCENT_ABOVE_HAIR_FAR = .07
         CONST_PERCENT_BELOW_CHIN_FAR = .42
 
+        # cropping difference required to find top of head
         CONST_AVERAGE_TO_CROP = 50
 
+        # paths to supporting .xmp files used as defaults
         CONST_CR2XMP = "J:/_CropScript/CR2template.xmp"
         CONST_ARWXMP = "J:/_CropScript/ARWtemplate.xmp"
 
+        # path to support .txt file used to decided color correcting
         CONST_PARAM = "J:/_CropScript/parameters.txt"
-
-
-        print("ALERT: Please make sure all relevant CSV files are closed before running this program")
         params = readParams(CONST_PARAM)
-        bgType = findBackgroundColor()
 
-        badList = []
+        # allows user to select background specs
+        bg_type = findBackgroundColor()
+
+        # creates a list of iamges where the face couldn't be found to skip them
+        bad_list = []
 
         # sets initial tone values
         toneCount = 0
@@ -58,16 +60,16 @@ def main():
         gTone = 0
         bTone = 0
 
-        # defines path to JPGs and finds RAW file type
+        print("ALERT: Please make sure all relevant CSV files are closed before running this program")
+
+        # defines path to JPGs
         # user selects JPG folder
         pathToFolder = browse_button()
         #print(pathToFolder)
 
-        # find RAW file type
+        # creates JPG count to know if user selected correct folder
         pathlistJPG = Path(pathToFolder).glob('**/*.jpg')
-
         countJPG = 0
-
         pathlist = Path(pathToFolder).glob('**/*.jpg')
 
         for path in pathlistJPG:
@@ -132,7 +134,8 @@ def main():
                 averageBackgroundColor = getAverageBackgroundColor(pixelArray)
 
                 # finds percentage-based measure of top of head
-                hairCoords = findTopOfHair(pixelArray, BoundingBoxJSON, bgType[0], CONST_AVERAGE_TO_CROP, averageBackgroundColor, folderPath, xmpPath)
+                hairCoords = findTopOfHair(pixelArray, BoundingBoxJSON, bg_type[0], CONST_AVERAGE_TO_CROP,
+                                           averageBackgroundColor, folderPath, xmpPath)
 
                 # defines bounding box top and bottom
                 BBTop = BoundingBoxJSON.get("Top")
@@ -153,11 +156,11 @@ def main():
 
                 # finds top and bottom crop depending on pose
                 if (BBAreaInPixels > CONST_IS_FAR):
-                    cropCoordsTop = hairCoords - (CONST_PERCENT_ABOVE_HAIR + bgType[1])
-                    cropCoordsBottom = (CONST_PERCENT_BELOW_CHIN + bgType[2]) + BBBottom
+                    cropCoordsTop = hairCoords - (CONST_PERCENT_ABOVE_HAIR + bg_type[1])
+                    cropCoordsBottom = (CONST_PERCENT_BELOW_CHIN + bg_type[2]) + BBBottom
                 else:
-                    cropCoordsTop = hairCoords - (CONST_PERCENT_ABOVE_HAIR_FAR + bgType[1])
-                    cropCoordsBottom = (CONST_PERCENT_BELOW_CHIN_FAR + bgType[2]) + BBBottom
+                    cropCoordsTop = hairCoords - (CONST_PERCENT_ABOVE_HAIR_FAR + bg_type[1])
+                    cropCoordsBottom = (CONST_PERCENT_BELOW_CHIN_FAR + bg_type[2]) + BBBottom
 
                 # finds all dimensions and crop coords for XMP
                 totalCropHeight = cropCoordsBottom - cropCoordsTop
@@ -203,15 +206,16 @@ def main():
                 print("Cropping " + xmpPath)
 
             else:
-                badList.append(jpgPath)
-                print("Bad JPGs: " + str(badList))
+                # creates a list of all the "bad" images
+                bad_list.append(jpgPath)
+                print("Bad JPGs: " + str(bad_list))
 
         # finds average tone for entire school
         toneSchool = [0, 0, 0]
         toneSchool[0] = round(rTone/toneCount)
         toneSchool[1] = round(gTone/toneCount)
         toneSchool[2] = round(bTone/toneCount)
-        print("Rig RGB averages: \nR: " + str(toneSchool[0]) + " G: " + str(toneSchool[1]) + " B: " + str(toneSchool[2]))
+        print("Rig RGB averages:\nR: " + str(toneSchool[0]) + " G: " + str(toneSchool[1]) + " B: " + str(toneSchool[2]))
 
         # uses mathColor to convert between RGB and Lab values
         rgb = sRGBColor(toneSchool[0], toneSchool[1], toneSchool[2])
@@ -223,10 +227,12 @@ def main():
         convertedLab[0] = round(int(convertedLab[0]) / 100)
         convertedLab[1] = round(int(convertedLab[1]) / 100)
         convertedLab[2] = round(int(convertedLab[2]) / 100)
-        print("Rig Lab averages: \nL: " + str(convertedLab[0]) + " a: " + str(convertedLab[1]) + " b: " + str(convertedLab[2]))
+        print("Rig Lab averages:\nL: " + str(convertedLab[0]) + " a: " + str(convertedLab[1]) + " b: " +
+              str(convertedLab[2]))
 
         print("Cropping finished successfully!")
 
+        # ceates new pathlist for color correcting that skips "bad" images
         pathlistTwo = Path(pathToFolder).glob('**/*.jpg')
 
         for path in pathlistTwo:
@@ -237,7 +243,7 @@ def main():
             xmpPath = path_in_str.replace('_JPG_CROP', '').replace('.jpg', '.xmp')
             jpgPath = path_in_str
 
-            for item in badList:
+            for item in bad_list:
                 if jpgPath == item:
                     badPath = 1
 
@@ -261,13 +267,14 @@ def main():
                 iConvertedLab[1] = round(int(iConvertedLab[1]) / 100)
                 iConvertedLab[2] = round(int(iConvertedLab[2]) / 100)
 
-                print("iL: " + str(iConvertedLab[0]) + " " + "ia: " + str(iConvertedLab[1]) + " " + "ib: " + str(iConvertedLab[2]))
+                print("iL: " + str(iConvertedLab[0]) + " " + "ia: " + str(iConvertedLab[1]) + " " + "ib: " +
+                      str(iConvertedLab[2]))
 
                 # colors according to school average
-                iVal = schoolColor(xmpPath, convertedLab[0], convertedLab[1], convertedLab[2], bgType[0], params)
+                iVal = schoolColor(xmpPath, convertedLab[0], convertedLab[1], convertedLab[2], bg_type[0], params)
 
                 # colors according to individual average
-                individualColor(xmpPath, iConvertedLab[0], iVal[0], iVal[1], iVal[2], convertedLab[0], bgType[0])
+                individualColor(xmpPath, iConvertedLab[0], iVal[0], iVal[1], iVal[2], convertedLab[0], bg_type[0])
 
                 # copies data to csv
                 printColorInformation(jpgPath, iTone, iConvertedLab, iVal, folderPath)
@@ -374,6 +381,7 @@ def defaultXMP(folderpath, fullpath, filetype, CR2XMP, ARWXMP):
                     f_tmp.write("   crs:RawFileName=\"" + filename + "\">")
                 else:
                     f_tmp.write(line)
+
     # if file is an ARW
     elif filetype == "ARW":
         shutil.copy2(ARWXMP, fullpath)
@@ -385,6 +393,8 @@ def defaultXMP(folderpath, fullpath, filetype, CR2XMP, ARWXMP):
                     f_tmp.write("   crs:RawFileName=\"" + filename + "\">")
                 else:
                     f_tmp.write(line)
+
+    # if file isn't valid RAW
     else:
         print("ERROR CANNOT FIND FILETYPE")
 
@@ -397,10 +407,6 @@ def defaultXMP(folderpath, fullpath, filetype, CR2XMP, ARWXMP):
 def openJPG(path):
     im = PIL.Image.open(path)
     pixel_array = np.array(im)
-
-    #v = open("array.txt", "w")
-    #v.write(str(pixel_array))
-    #v.close()
 
     return pixel_array
 
@@ -421,7 +427,7 @@ def centerOfBoundingBox(boundingBoxJSON):
 
     return ((BBLeft + BBRight) / 2, (BBTop + BBBottom) / 2)
 
-# using the pixel array, finds the average RGB value of the first 100 rows
+# using the pixel array, finds the average RGB value of the first 75 rows
 def getAverageBackgroundColor(pixelArray):
     rSum = 0
     gSum = 0
@@ -445,7 +451,7 @@ def getAverageBackgroundColor(pixelArray):
 
     return [rAverage, gAverage, bAverage]
 
-# finds the background color
+# finds the background specs for the rig
 def findBackgroundColor():
     aboveHead = 0
     belowChin = 0
@@ -454,12 +460,12 @@ def findBackgroundColor():
     # for blue backgrounds
     if background.lower() == "blue":
         print("blue")
-        bgType = 0
+        bg_type = 0
 
     # for grey backgrounds
     elif background.lower() == "grey" or background.lower() == "gray":
         print("grey")
-        bgType = 1
+        bg_type = 1
 
     # for greenscreen backgrounds
     elif background.lower() == "green":
@@ -473,25 +479,25 @@ def findBackgroundColor():
             print("Input not recognized, please respecify specs.")
             findBackgroundColor()
 
-        print(str(aboveHead) + " green")
-        bgType = 2
+        print(" green")
+        bg_type = 2
 
     # for grey backgrounds
     elif background.lower() == "mysa":
         print("MYSA")
-        bgType = 3
+        bg_type = 3
         aboveHead = 0
         belowChin = .0
 
     # catches non-recognized backgrounds
     else:
         print("Background type not recognized. Please re-enter.")
-        bgType = findBackgroundColor()
+        bg_type = findBackgroundColor()
 
-    return bgType, aboveHead, belowChin
+    return bg_type, aboveHead, belowChin
 
 # finds the top og the hair by comparing average RGB values to RGB values going down the image
-def findTopOfHair(pixelArray, boundingBox, bgType, averageToCrop, averageBackgroundColor, folder, imageName):
+def findTopOfHair(pixelArray, boundingBox, bg_type, averageToCrop, averageBackgroundColor, folder, imageName):
 
     # uses width of head to make average despairities easier to find
     leftBBInPixels = (int)(pixelArray.shape[1] * boundingBox.get("Left"))
@@ -499,9 +505,8 @@ def findTopOfHair(pixelArray, boundingBox, bgType, averageToCrop, averageBackgro
         (pixelArray.shape[1] * boundingBox.get("Left")) + (pixelArray.shape[1] * boundingBox.get("Width")))
     BBWidth = rigthBBInPixels - leftBBInPixels
 
-    # compares read in pixels to average value row by row until it finds an average bigger than averageToCrop
     # for blue backgrounds
-    if bgType == 0:
+    if bg_type == 0:
         # print("blue top")
         rowNum = 0
         for row in pixelArray:
@@ -549,7 +554,7 @@ def findTopOfHair(pixelArray, boundingBox, bgType, averageToCrop, averageBackgro
                 break
 
     # for grey backgrounds
-    elif bgType == 1:
+    elif bg_type == 1:
         #print("grey top")
         averageBackgroundColorTotal = averageBackgroundColor[0] + averageBackgroundColor[1] + averageBackgroundColor[2]
         averageBackgroundColorTotalP = averageBackgroundColorTotal + 80
@@ -643,7 +648,7 @@ def findTopOfHair(pixelArray, boundingBox, bgType, averageToCrop, averageBackgro
             print("Using boundingbox...")
 
     # for greenscreen backgrounds
-    elif bgType == 2:
+    elif bg_type == 2:
         #print("green top")
         rowNum = 0
         for row in pixelArray:
@@ -686,11 +691,10 @@ def findTopOfHair(pixelArray, boundingBox, bgType, averageToCrop, averageBackgro
                 break
 
     # for MYSA
-    elif bgType == 3:
+    elif bg_type == 3:
         rowNum = int((boundingBox.get("Top") * 480) - 40)
 
     # defines hair position percent by the row / total rows
-    #print("next image")
     hairPosition = rowNum / pixelArray.shape[0]
 
     return hairPosition
@@ -715,12 +719,13 @@ def makeXMP(cropCoordsTop, cropCoordsBottom, cropLeft, cropRight, path):
                 f_tmp.write("   crs:HasCrop=\"True\"\n")
             else:
                 f_tmp.write(line)
+
     f.close()
     f_tmp.close()
     remove(path)
     rename(path + '_tmp', path)
 
-# sends image to Rekognition client
+# sends image to rekognition client
 def rekognitionRequest(path):
     client = boto3.client('rekognition')
 
@@ -744,7 +749,7 @@ def rekognitionRequest(path):
 # find average RGB values of skin tone
 def skinToneAverage(pixelArray, boundingBox, BBTop, BBBottom):
 
-    # uses width of head to make average despairities easier to find
+    # uses width of head to make average disparities easier to find
     leftBBInPixels = (int)(pixelArray.shape[1] * boundingBox.get("Left"))
     rigthBBInPixels = (int)(
         (pixelArray.shape[1] * boundingBox.get("Left")) + (pixelArray.shape[1] * boundingBox.get("Width")))
@@ -755,8 +760,6 @@ def skinToneAverage(pixelArray, boundingBox, BBTop, BBBottom):
     BBWidth = rigthBBInPixels - leftBBInPixels
     BBHeight = bottomBBInPixels - topBBInPixels
     BBArea = BBHeight * BBWidth
-    #print(rigthBBInPixels, ' ', leftBBInPixels, ' ', bottomBBInPixels, ' ', topBBInPixels)
-    #print(BBWidth, ' ', BBHeight, ' ', BBArea)
 
     # compares read in pixels to average value row by row until it finds an average bigger than averageToCrop
     rowNum = 0
@@ -895,22 +898,24 @@ def defaultColor(path):
     rename(path + '_tmp', path)
 
 # colors based on school averages
-def schoolColor(path, Lval, aval, bval, bgType, params):
+def schoolColor(path, Lval, aval, bval, bg_type, params):
     # sets XMP values based on if the background is blue grey or green
     # blue
-    if bgType == 0:
+    if bg_type == 0:
         exp = ((params[12] - Lval) / 20)
         temper = params[0]
         tint = params[1]
         wh = params[2]
         bl = params[3]
+
     # grey
-    elif bgType == 1:
+    elif bg_type == 1:
         exp = ((params[13] - Lval) / 20)
         temper = params[4]
         tint = params[5]
         wh = params[6]
         bl = params[7]
+
     # green
     else:
         exp = ((params[14] - Lval) / 20)
@@ -947,12 +952,12 @@ def schoolColor(path, Lval, aval, bval, bgType, params):
     return exp, temper, tint, wh, bl, newL, newa, newb
 
 # colors based on individual values
-def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool, bgType):
+def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool, bg_type):
     #print(Lval)
     print("Color correcting " + path)
 
     # blue individual color correction
-    if bgType == 0:
+    if bg_type == 0:
         # same tone
         if Lval <= (LvalSchool + 2) and  Lval >= (LvalSchool - 2):
             exp = expSchool
@@ -980,7 +985,7 @@ def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool,
             tint = tintSchool
 
     # grey individual color correction
-    elif bgType == 1:
+    elif bg_type == 1:
         # same tone
         if Lval <= (LvalSchool + 3) and Lval >= (LvalSchool - 3):
             exp = expSchool
