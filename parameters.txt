@@ -1,0 +1,17 @@
+blueexp = 53
+bluetemp = 5225
+bluetint = 11
+bluew = -20
+blueb = 20
+
+greyexp = 55
+greytemp = 5000
+greytint = 5
+greyw = -20
+greyb = 30
+
+greenexp = 55
+greentemp = 5000
+greentint = 5
+greenw = -20
+greenb = 30
