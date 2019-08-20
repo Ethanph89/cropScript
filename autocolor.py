@@ -179,6 +179,7 @@ def readParams(file):
 
 
 def browse_button():
+
     # Allow user to select a directory and store it in global var
     # called folder_path
     global folder_path
@@ -292,6 +293,7 @@ def skinToneAverage(pixelArray, boundingBox, BBTop, BBBottom):
 
 # colors based on school averages
 def schoolColor(path, Lval, aval, bval, bgType, params):
+
     # sets XMP values based on if the background is blue grey or green
     # blue
     if bgType == 0:
@@ -344,7 +346,6 @@ def schoolColor(path, Lval, aval, bval, bgType, params):
 
 # colors based on individual values
 def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool, bgType):
-    #print(Lval)
     print("Color correcting " + path)
 
     # blue individual color correction

@@ -349,6 +349,7 @@ def readParams(file):
 
 
 def browse_button():
+
     # Allow user to select a directory and store it in global var
     # called folder_path
     global folder_path
@@ -455,8 +456,10 @@ def getAverageBackgroundColor(pixelArray):
 def findBackgroundColor():
     aboveHead = 0
     belowChin = 0
+
     print("Please specify background color (blue, grey, green, MYSA): ")
     background = input()
+
     # for blue backgrounds
     if background.lower() == "blue":
         print("blue")
