@@ -482,7 +482,7 @@ def findBackgroundColor():
             print("Input not recognized, please respecify specs.")
             findBackgroundColor()
 
-        print(" green")
+        print("green")
         bg_type = 2
 
     # for grey backgrounds
