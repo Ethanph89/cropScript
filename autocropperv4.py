@@ -51,7 +51,7 @@ def main():
         # allows user to select background specs
         bg_type = findBackgroundColor()
 
-        # creates a list of iamges where the face couldn't be found to skip them
+        # creates a list of images where the face couldn't be found to skip them
         bad_list = []
 
         # sets initial tone values
@@ -274,7 +274,7 @@ def main():
                 iVal = schoolColor(xmpPath, convertedLab[0], convertedLab[1], convertedLab[2], bg_type[0], params)
 
                 # colors according to individual average
-                individualColor(xmpPath, iConvertedLab[0], iVal[0], iVal[1], iVal[2], convertedLab[0], bg_type[0])
+                individualColor(xmpPath, iConvertedLab[0], iVal[0], iVal[1], iVal[2], convertedLab[0], bg_type[0], params)
 
                 # copies data to csv
                 printColorInformation(jpgPath, iTone, iConvertedLab, iVal, folderPath)
@@ -342,11 +342,32 @@ def readParams(file):
                 greenB = int(line.replace('greenb = ', '').replace('\n', ''))
             elif "greenexp" in line:
                 greenexp = int(line.replace('greenexp = ', '').replace('\n', ''))
+
+            elif "paleexp" in line:
+                paleexp = int(line.replace('paleexp = ', '').replace('\n', ''))
+            elif "paletemp" in line:
+                paletemp = float(line.replace('paletemp = ', '').replace('\n', ''))
+            elif "paletint" in line:
+                paletint = int(line.replace('paletint = ', '').replace('\n', ''))
+
+            elif "tanexp" in line:
+                tanexp = int(line.replace('tanexp = ', '').replace('\n', ''))
+            elif "tantemp" in line:
+                tantemp = float(line.replace('tantemp = ', '').replace('\n', ''))
+            elif "tantint" in line:
+                tantint = int(line.replace('tantint = ', '').replace('\n', ''))
+
+            elif "darkexp" in line:
+                darkexp = int(line.replace('darkexp = ', '').replace('\n', ''))
+            elif "darktemp" in line:
+                darktemp = float(line.replace('darktemp = ', '').replace('\n', ''))
+            elif "darktint" in line:
+                darktint = int(line.replace('darktint = ', '').replace('\n', ''))
+
     f.close()
 
     return blueTemp, blueTint, blueW, blueB, greyTemp, greyTint, greyW, greyB, greenTemp, greenTint, greenW, greenB, \
-           blueexp, greyexp, greenexp
-
+           blueexp, greyexp, greenexp, paleexp, paletemp, paletint, tanexp, tantemp, tantint, darkexp, darktemp, darktint
 
 def browse_button():
 
@@ -955,7 +976,7 @@ def schoolColor(path, Lval, aval, bval, bg_type, params):
     return exp, temper, tint, wh, bl, newL, newa, newb
 
 # colors based on individual values
-def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool, bg_type):
+def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool, bg_type, params):
     #print(Lval)
     print("Color correcting " + path)
 
@@ -963,19 +984,19 @@ def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool,
     if bg_type == 0:
         # same tone
         if Lval <= (LvalSchool + 2) and  Lval >= (LvalSchool - 2):
-            exp = expSchool
-            temper = temperSchool
-            tint = tintSchool
+            exp = expSchool + params[18]
+            temper = temperSchool + params[19]
+            tint = tintSchool + params[20]
         # light
         elif Lval > (LvalSchool + 2):
             exp = expSchool - 0.2
-            temper = temperSchool * 1
+            temper = temperSchool
             tint = tintSchool
         # very light
         elif Lval > (LvalSchool + 5):
-            exp = expSchool - 0.40
-            temper = temperSchool * 1
-            tint = tintSchool
+            exp = expSchool - 0.40 + params[15]
+            temper = temperSchool + params[16]
+            tint = tintSchool + params[17]
         # dark
         elif Lval < (LvalSchool - 2):
             exp = expSchool + 0.2
@@ -983,27 +1004,27 @@ def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool,
             tint = tintSchool
         # very dark
         else:
-            exp = expSchool + 0.40
-            temper = temperSchool
-            tint = tintSchool
+            exp = expSchool + 0.40 + params[21]
+            temper = temperSchool + params[22]
+            tint = tintSchool + params[23]
 
     # grey individual color correction
     elif bg_type == 1:
         # same tone
         if Lval <= (LvalSchool + 3) and Lval >= (LvalSchool - 3):
-            exp = expSchool
-            temper = temperSchool
-            tint = tintSchool
+            exp = expSchool + params[18]
+            temper = temperSchool + params[19]
+            tint = tintSchool + params[20]
         # light
         elif Lval > (LvalSchool + 3):
             exp = expSchool - 0.35
-            temper = temperSchool * 1
+            temper = temperSchool
             tint = tintSchool
         # very light
         elif Lval > (LvalSchool + 5):
-            exp = expSchool - 0.40
-            temper = temperSchool * 1
-            tint = tintSchool
+            exp = expSchool - 0.40 + params[15]
+            temper = temperSchool + params[16]
+            tint = tintSchool + params[17]
         # dark
         elif Lval < (LvalSchool - 3):
             exp = expSchool + 0.3
@@ -1011,27 +1032,27 @@ def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool,
             tint = tintSchool
         # very dark
         else:
-            exp = expSchool + 0.35
-            temper = temperSchool
-            tint = tintSchool
+            exp = expSchool + 0.35 + params[21]
+            temper = temperSchool + params[22]
+            tint = tintSchool + params[23]
 
     # green individual color correction
     else:
         # same tone
         if Lval <= (LvalSchool + 3) and Lval >= (LvalSchool - 3):
-            exp = expSchool
-            temper = temperSchool
-            tint = tintSchool
+            exp = expSchool + params[18]
+            temper = temperSchool + params[19]
+            tint = tintSchool + params[20]
         # light
         elif Lval > (LvalSchool + 3):
             exp = expSchool - 0.35
-            temper = temperSchool * 1
+            temper = temperSchool
             tint = tintSchool
         # very light
         elif Lval > (LvalSchool + 5):
-            exp = expSchool - 0.40
-            temper = temperSchool * 1
-            tint = tintSchool
+            exp = expSchool - 0.40 + params[15]
+            temper = temperSchool + params[16]
+            tint = tintSchool + params[17]
         # dark
         elif Lval < (LvalSchool - 3):
             exp = expSchool + 0.3
@@ -1039,9 +1060,9 @@ def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool,
             tint = tintSchool
         # very dark
         else:
-            exp = expSchool + 0.35
-            temper = temperSchool
-            tint = tintSchool
+            exp = expSchool + 0.35 + params[21]
+            temper = temperSchool + params[22]
+            tint = tintSchool + params[23]
 
     f_tmp = open(path + '_tmp', 'w')
 
