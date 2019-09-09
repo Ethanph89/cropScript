@@ -15,3 +15,15 @@ greentemp = 5000
 greentint = 5
 greenw = -20
 greenb = 30
+
+paleexp = 0
+paletemp = 0
+paletint = 0
+
+tanexp = 0
+tantemp = 0
+tantint = 0
+
+darkexp = 0
+darktemp = 0
+darktint = 0
