@@ -118,7 +118,7 @@ def main():
             # colors according to school average
             iVal = schoolColor(xmpPath, convertedLab[0], convertedLab[1], convertedLab[2], bgType, params)
             # colors according to individual average
-            individualColor(xmpPath, iConvertedLab[0], iVal[0], iVal[1], iVal[2], convertedLab[0], bgType)
+            individualColor(xmpPath, iConvertedLab[0], iVal[0], iVal[1], iVal[2], convertedLab[0], bgType, params)
             # copies data to csv
             printColorInformation(jpgPath, iTone, iConvertedLab, iVal, folderPath)
 
@@ -150,6 +150,22 @@ def readParams(file):
                 blueB = int(line.replace('blueb = ', '').replace('\n', ''))
             elif "blueexp" in line:
                 blueexp = int(line.replace('blueexp = ', '').replace('\n', ''))
+            elif "bluesat" in line:
+                bluesat = int(line.replace('bluesat = ', '').replace('\n', ''))
+            elif "bluehsl_org_lum" in line:
+                bluehsl_org_lum = int(line.replace('bluehsl_org_lum = ', '').replace('\n', ''))
+            elif "blues_curve" in line:
+                blues_curve = str(line.replace('blueexp = ', '').replace('\n', ''))
+                if blues_curve == "y":
+                    blueParamS = -3
+                    blueParamD = -6
+                    blueParamH = 3
+                    blueParamL = 6
+                else:
+                    blueParamS = 0
+                    blueParamD = 0
+                    blueParamH = 0
+                    blueParamL = 0
 
             elif "greytemp" in line:
                 greyTemp = int(line.replace('greytemp = ', '').replace('\n', ''))
@@ -161,6 +177,22 @@ def readParams(file):
                 greyB = int(line.replace('greyb = ', '').replace('\n', ''))
             elif "greyexp" in line:
                 greyexp = int(line.replace('greyexp = ', '').replace('\n', ''))
+            elif "greysat" in line:
+                greysat = int(line.replace('greysat = ', '').replace('\n', ''))
+            elif "greyhsl_org_lum" in line:
+                greyhsl_org_lum = int(line.replace('greyhsl_org_lum = ', '').replace('\n', ''))
+            elif "greys_curve" in line:
+                greys_curve = str(line.replace('greyexp = ', '').replace('\n', ''))
+                if greys_curve == "y":
+                    greyParamS = -3
+                    greyParamD = -6
+                    greyParamH = 3
+                    greyParamL = 6
+                else:
+                    greyParamS = 0
+                    greyParamD = 0
+                    greyParamH = 0
+                    greyParamL = 0
 
             elif "greentemp" in line:
                 greenTemp = int(line.replace('greentemp = ', '').replace('\n', ''))
@@ -172,10 +204,64 @@ def readParams(file):
                 greenB = int(line.replace('greenb = ', '').replace('\n', ''))
             elif "greenexp" in line:
                 greenexp = int(line.replace('greenexp = ', '').replace('\n', ''))
+            elif "greensat" in line:
+                greensat = int(line.replace('greensat = ', '').replace('\n', ''))
+            elif "greenhsl_org_lum" in line:
+                greenhsl_org_lum = int(line.replace('greenhsl_org_lum = ', '').replace('\n', ''))
+            elif "greens_curve" in line:
+                greens_curve = str(line.replace('greenexp = ', '').replace('\n', ''))
+                if greens_curve == "y":
+                    greenParamS = -6
+                    greenParamD = -3
+                    greenParamH = 6
+                    greenParamL = 3
+                else:
+                    greenParamS = 0
+                    greenParamD = 0
+                    greenParamH = 0
+                    greenParamL = 0
+
+            elif "paleexp" in line:
+                paleexp = float(line.replace('paleexp = ', '').replace('\n', ''))
+            elif "paletemp" in line:
+                paletemp = float(line.replace('paletemp = ', '').replace('\n', ''))
+            elif "paletint" in line:
+                paletint = float(line.replace('paletint = ', '').replace('\n', ''))
+
+            elif "tanexp" in line:
+                tanexp = float(line.replace('tanexp = ', '').replace('\n', ''))
+            elif "tantemp" in line:
+                tantemp = float(line.replace('tantemp = ', '').replace('\n', ''))
+            elif "tantint" in line:
+                tantint = float(line.replace('tantint = ', '').replace('\n', ''))
+
+            elif "darkexp" in line:
+                darkexp = float(line.replace('darkexp = ', '').replace('\n', ''))
+            elif "darktemp" in line:
+                darktemp = float(line.replace('darktemp = ', '').replace('\n', ''))
+            elif "darktint" in line:
+                darktint = float(line.replace('darktint = ', '').replace('\n', ''))
+
+            elif "percent_above_hair_close" in line:
+                percent_above_hair = float(line.replace('percent_above_hair_close = ', '').replace('\n', ''))
+            elif "percent_below_chin_close" in line:
+                percent_below_chin = float(line.replace('percent_below_chin_close = ', '').replace('\n', ''))
+            elif "is_far" in line:
+                is_far = int(line.replace('is_far = ', '').replace('\n', ''))
+            elif "percent_above_hair_far" in line:
+                percent_above_hair_far = float(line.replace('percent_above_hair_far = ', '').replace('\n', ''))
+            elif "percent_below_chin_far" in line:
+                percent_below_chin_far = float(line.replace('percent_below_chin_far = ', '').replace('\n', ''))
+            elif "average_to_crop" in line:
+                average_to_crop = int(line.replace('average_to_crop = ', '').replace('\n', ''))
+
     f.close()
 
     return blueTemp, blueTint, blueW, blueB, greyTemp, greyTint, greyW, greyB, greenTemp, greenTint, greenW, greenB, \
-           blueexp, greyexp, greenexp
+           blueexp, greyexp, greenexp, paleexp, paletemp, paletint, tanexp, tantemp, tantint, darkexp, darktemp, darktint,\
+           bluesat, bluehsl_org_lum, blueParamD, blueParamH, blueParamL, blueParamS, greysat, greyhsl_org_lum, greyParamD, \
+           greyParamH, greyParamL, greyParamS, greensat, greenhsl_org_lum, greenParamD, greenParamH, greenParamL, greenParamS, \
+           percent_above_hair, percent_below_chin, is_far, percent_above_hair_far, percent_below_chin_far, average_to_crop
 
 
 def browse_button():
@@ -202,10 +288,6 @@ def openJPG(path):
     im = PIL.Image.open(path)
     pixel_array = np.array(im)
 
-    #v = open("array.txt", "w")
-    #v.write(str(pixel_array))
-    #v.close()
-
     return pixel_array
 
 # parses AWS output into an array
@@ -216,28 +298,54 @@ def parse_aws_output(JSONResponse):
     OrientationCorrection = awsData.get("OrientationCorrection")
     return [BoundingBox, Landmarks, OrientationCorrection]
 
-# finds the background color
+# finds the background specs for the rig
 def findBackgroundColor():
-    print("Please specify background color (blue, grey, green): ")
+    aboveHead = 0
+    belowChin = 0
+
+    print("Please specify background color (blue, grey, green, MYSA): ")
     background = input()
+
     # for blue backgrounds
-    if background == "blue":
+    if background.lower() == "blue":
         print("blue")
-        bgType = 0
+        bg_type = 0
 
     # for grey backgrounds
-    elif background == "grey" or background == "gray":
+    elif background.lower() == "grey" or background.lower() == "gray":
         print("grey")
-        bgType = 1
+        bg_type = 1
 
     # for greenscreen backgrounds
-    else:
+    elif background.lower() == "green":
+        print("Kids or Seniors? (K/S)")
+        aboveHead = input()
+        if aboveHead.lower() == "k":
+            aboveHead = .03
+        elif aboveHead.lower() == "s":
+            aboveHead = 0
+        else:
+            print("Input not recognized, please respecify specs.")
+            findBackgroundColor()
+
         print("green")
-        bgType = 2
+        bg_type = 2
 
-    return bgType
+    # for grey backgrounds
+    elif background.lower() == "mysa":
+        print("MYSA")
+        bg_type = 3
+        aboveHead = 0
+        belowChin = .0
 
-# sends image to Rekognition client
+    # catches non-recognized backgrounds
+    else:
+        print("Background type not recognized. Please re-enter.")
+        bg_type = findBackgroundColor()
+
+    return bg_type, aboveHead, belowChin
+
+# sends image to rekognition client
 def rekognitionRequest(path):
     client = boto3.client('rekognition')
 
@@ -261,7 +369,7 @@ def rekognitionRequest(path):
 # find average RGB values of skin tone
 def skinToneAverage(pixelArray, boundingBox, BBTop, BBBottom):
 
-    # uses width of head to make average despairities easier to find
+    # uses width of head to make average disparities easier to find
     leftBBInPixels = (int)(pixelArray.shape[1] * boundingBox.get("Left"))
     rigthBBInPixels = (int)(
         (pixelArray.shape[1] * boundingBox.get("Left")) + (pixelArray.shape[1] * boundingBox.get("Width")))
@@ -272,8 +380,6 @@ def skinToneAverage(pixelArray, boundingBox, BBTop, BBBottom):
     BBWidth = rigthBBInPixels - leftBBInPixels
     BBHeight = bottomBBInPixels - topBBInPixels
     BBArea = BBHeight * BBWidth
-    #print(rigthBBInPixels, ' ', leftBBInPixels, ' ', bottomBBInPixels, ' ', topBBInPixels)
-    #print(BBWidth, ' ', BBHeight, ' ', BBArea)
 
     # compares read in pixels to average value row by row until it finds an average bigger than averageToCrop
     rowNum = 0
@@ -292,34 +398,38 @@ def skinToneAverage(pixelArray, boundingBox, BBTop, BBBottom):
     return skinAverage
 
 # colors based on school averages
-def schoolColor(path, Lval, aval, bval, bgType, params):
+def schoolColor(path, Lval, aval, bval, bg_type, params):
+    adiff = 0
+    bdiff = 15 - bval
 
     # sets XMP values based on if the background is blue grey or green
     # blue
-    if bgType == 0:
+    if bg_type == 0:
         exp = ((params[12] - Lval) / 20)
-        temper = params[0]
-        tint = params[1]
+        temper = (params[0] + (bdiff * 100))
+        tint = (params[1] + adiff)
         wh = params[2]
         bl = params[3]
+
     # grey
-    elif bgType == 1:
+    elif bg_type == 1:
         exp = ((params[13] - Lval) / 20)
-        temper = params[4]
-        tint = params[5]
+        temper = (params[4] + (bdiff * 100))
+        tint = (params[5] + adiff)
         wh = params[6]
         bl = params[7]
+
     # green
     else:
         exp = ((params[14] - Lval) / 20)
-        temper = params[8]
-        tint = params[9]
+        temper = (params[8] + (bdiff * 100))
+        tint = (params[9] + adiff)
         wh = params[10]
         bl = params[11]
 
     newL = Lval + (20 * exp)
-    newa = aval
-    newb = bval
+    newa = tint
+    newb = temper
 
     f_tmp = open(path + '_tmp', 'w')
 
@@ -345,92 +455,93 @@ def schoolColor(path, Lval, aval, bval, bgType, params):
     return exp, temper, tint, wh, bl, newL, newa, newb
 
 # colors based on individual values
-def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool, bgType):
+def individualColor(path, Lval, expSchool, temperSchool, tintSchool, LvalSchool, bg_type, params):
+    #print(Lval)
     print("Color correcting " + path)
 
     # blue individual color correction
-    if bgType == 0:
+    if bg_type == 0:
         # same tone
-        if Lval <= (LvalSchool + 2) and  Lval >= (LvalSchool - 2):
-            exp = expSchool
-            temper = temperSchool
-            tint = tintSchool
+        if Lval <= (LvalSchool + 2) and Lval >= (LvalSchool - 2):
+            exp = expSchool + params[18]
+            temper = temperSchool + params[19]
+            tint = tintSchool + params[20]
         # light
         elif Lval > (LvalSchool + 2):
-            exp = expSchool - 0.2
-            temper = temperSchool * 1
-            tint = tintSchool
+            exp = expSchool + params[15] + params[18]
+            temper = temperSchool + params[16]
+            tint = tintSchool + params[17]
         # very light
         elif Lval > (LvalSchool + 5):
-            exp = expSchool - 0.40
-            temper = temperSchool * 1
-            tint = tintSchool
+            exp = expSchool - 0.15 + params[15] + params[18]
+            temper = temperSchool + params[16]
+            tint = tintSchool + params[17]
         # dark
         elif Lval < (LvalSchool - 2):
-            exp = expSchool + 0.2
-            temper = temperSchool
-            tint = tintSchool
+            exp = expSchool + params[21] + params[18]
+            temper = temperSchool + params[22]
+            tint = tintSchool + params[23]
         # very dark
         else:
-            exp = expSchool + 0.40
-            temper = temperSchool
-            tint = tintSchool
+            exp = expSchool + 0.15 + params[21] + params[18]
+            temper = temperSchool + params[22]
+            tint = tintSchool + params[23]
 
     # grey individual color correction
-    elif bgType == 1:
+    elif bg_type == 1:
         # same tone
-        if Lval <= (LvalSchool + 3) and Lval >= (LvalSchool - 3):
-            exp = expSchool
-            temper = temperSchool
-            tint = tintSchool
+        if Lval <= (LvalSchool + 2) and Lval >= (LvalSchool - 2):
+            exp = expSchool + params[18]
+            temper = temperSchool + params[19]
+            tint = tintSchool + params[20]
         # light
-        elif Lval > (LvalSchool + 3):
-            exp = expSchool - 0.35
-            temper = temperSchool * 1
-            tint = tintSchool
+        elif Lval > (LvalSchool + 2):
+            exp = expSchool + params[15] + params[18]
+            temper = temperSchool + params[16]
+            tint = tintSchool + params[17]
         # very light
         elif Lval > (LvalSchool + 5):
-            exp = expSchool - 0.40
-            temper = temperSchool * 1
-            tint = tintSchool
+            exp = expSchool - 0.15 + params[15] + params[18]
+            temper = temperSchool + params[16]
+            tint = tintSchool + params[17]
         # dark
-        elif Lval < (LvalSchool - 3):
-            exp = expSchool + 0.3
-            temper = temperSchool
-            tint = tintSchool
+        elif Lval < (LvalSchool - 2):
+            exp = expSchool + params[21] + params[18]
+            temper = temperSchool + params[22]
+            tint = tintSchool + params[23]
         # very dark
         else:
-            exp = expSchool + 0.35
-            temper = temperSchool
-            tint = tintSchool
+            exp = expSchool + 0.15 + params[21] + params[18]
+            temper = temperSchool + params[22]
+            tint = tintSchool + params[23]
 
     # green individual color correction
     else:
         # same tone
-        if Lval <= (LvalSchool + 3) and Lval >= (LvalSchool - 3):
-            exp = expSchool
-            temper = temperSchool
-            tint = tintSchool
+        if Lval <= (LvalSchool + 2) and Lval >= (LvalSchool - 2):
+            exp = expSchool + params[18]
+            temper = temperSchool + params[19]
+            tint = tintSchool + params[20]
         # light
-        elif Lval > (LvalSchool + 3):
-            exp = expSchool - 0.35
-            temper = temperSchool * 1
-            tint = tintSchool
+        elif Lval > (LvalSchool + 2):
+            exp = expSchool + params[15] + params[18]
+            temper = temperSchool + params[16]
+            tint = tintSchool + params[17]
         # very light
         elif Lval > (LvalSchool + 5):
-            exp = expSchool - 0.40
-            temper = temperSchool * 1
-            tint = tintSchool
+            exp = expSchool - 0.15 + params[15] + params[18]
+            temper = temperSchool + params[16]
+            tint = tintSchool + params[17]
         # dark
-        elif Lval < (LvalSchool - 3):
-            exp = expSchool + 0.3
-            temper = temperSchool
-            tint = tintSchool
+        elif Lval < (LvalSchool - 2):
+            exp = expSchool + params[21] + params[18]
+            temper = temperSchool + params[22]
+            tint = tintSchool + params[23]
         # very dark
         else:
-            exp = expSchool + 0.35
-            temper = temperSchool
-            tint = tintSchool
+            exp = expSchool + 0.15 + params[21] + params[18]
+            temper = temperSchool + params[22]
+            tint = tintSchool + params[23]
 
     f_tmp = open(path + '_tmp', 'w')
 
