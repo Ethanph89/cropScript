@@ -184,10 +184,11 @@ def readParams(file):
             elif "greys_curve" in line:
                 greys_curve = str(line.replace('greyexp = ', '').replace('\n', ''))
                 if greys_curve == "y":
-                    greyParamS = -3
-                    greyParamD = -6
-                    greyParamH = 3
-                    greyParamL = 6
+                    greyParamS = 0
+                    greyParamD = 0
+                    greyParamH = 0
+                    greyParamL = 0
+                #Ethan -- this is not prompting to user
                 else:
                     greyParamS = 0
                     greyParamD = 0
