@@ -1,29 +1,56 @@
+# Blue params
 blueexp = 53
 bluetemp = 5225
 bluetint = 11
 bluew = -20
 blueb = 20
+bluesat = 10
+blues_curve = y
+bluehsl_org_lum = 10
 
+# Grey params
 greyexp = 55
 greytemp = 5000
 greytint = 5
 greyw = -20
 greyb = 30
+greysat = 10
+greys_curve = y
+greyhsl_org_lum = 10
 
+# Green params
 greenexp = 55
-greentemp = 5000
-greentint = 5
+greentemp = 5150
+greentint = 9
 greenw = -20
-greenb = 30
+greenb = 20
+greensat = 10
+greens_curve = y
+greenhsl_org_lum = 10
 
-paleexp = 0
-paletemp = 0
-paletint = 0
+# Pale params
+paleexp = -0.20
+paletemp = 150
+paletint = -9
 
-tanexp = 0
-tantemp = 0
-tantint = 0
+# Tan params
+tanexp = -.25
+tantemp = 150
+tantint = -9
 
-darkexp = 0
-darktemp = 0
-darktint = 0
+# Dark params
+darkexp = 0.20
+darktemp = 150
+darktint = -9
+
+# Cropping params
+percent_above_hair_close = .10
+percent_below_chin_close = .2125
+percent_face = .34
+is_far = 6000
+percent_above_hair_far = 0.08
+percent_below_chin_far = 0.42
+average_to_crop = 50
+
+# Pass params (1 or 2 passes?)
+pass_num = 2

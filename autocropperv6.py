@@ -275,11 +275,14 @@ def main():
                 print("iL: " + str(iConvertedLab[0]) + " " + "ia: " + str(iConvertedLab[1]) + " " + "ib: " +
                       str(iConvertedLab[2]))
 
+                # PASS ONE
                 # colors according to school average
                 iVal = schoolColor(xmpPath, convertedLab[0], convertedLab[1], convertedLab[2], bg_type[0], params)
 
-                # colors according to individual average
-                individualColor(xmpPath, iConvertedLab[0], iVal[0], iVal[1], iVal[2], convertedLab[0], bg_type[0], params)
+                # PASS TWO
+                if params[49] == 2:
+                    # colors according to individual average
+                    individualColor(xmpPath, iConvertedLab[0], iVal[0], iVal[1], iVal[2], convertedLab[0], bg_type[0], params)
 
                 # copies data to csv
                 printColorInformation(jpgPath, iTone, iConvertedLab, iVal, folderPath)
@@ -432,6 +435,9 @@ def readParams(file):
             elif "percent_face" in line:
                 percent_face = float(line.replace('percent_face = ', '').replace('\n', ''))
 
+            elif "pass_num" in line:
+                pass_num = int(line.replace('pass_num = ', '').replace('\n', ''))
+
     f.close()
 
     #print(str(greenParamD) + str(greenParamH) + str(greenParamL) + str(greenParamS))
@@ -441,7 +447,7 @@ def readParams(file):
            bluesat, bluehsl_org_lum, blueParamD, blueParamH, blueParamL, blueParamS, greysat, greyhsl_org_lum, greyParamD, \
            greyParamH, greyParamL, greyParamS, greensat, greenhsl_org_lum, greenParamD, greenParamH, greenParamL, greenParamS, \
            percent_above_hair, percent_below_chin, is_far, percent_above_hair_far, percent_below_chin_far, average_to_crop, \
-           percent_face
+           percent_face, pass_num
 
 def browse_button():
 
