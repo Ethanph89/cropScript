@@ -11,6 +11,7 @@
     xmlns:stEvt="http://ns.adobe.com/xap/1.0/sType/ResourceEvent#"
     xmlns:dc="http://purl.org/dc/elements/1.1/"
     xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+   xmp:Label=""
    tiff:Make="SONY"
    tiff:Model="ILCE-7M2"
    tiff:Orientation="8"
