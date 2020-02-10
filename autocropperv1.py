@@ -20,6 +20,7 @@ from psd_tools import PSDImage
 from matplotlib import pyplot
 from mpl_toolkits.mplot3d import Axes3D
 import random
+import csv
 np.set_printoptions(threshold=sys.maxsize)
 
 
@@ -35,13 +36,32 @@ np.set_printoptions(threshold=sys.maxsize)
 #   class for image
 class myImg(object):
 
-    def __init__(self, name, JSON, pixelArray):
+    def __init__(self, name, JSON, pixelArray, params, selects, csvData):
         leftBound = JSON.get("Left")
         rightBound = leftBound + JSON.get("Width")
         topBound = JSON.get("Top")
         bottomBound= topBound + JSON.get("Height")
-
         self.name = name
+
+        if "spr" in self.name:
+            self.seasonNum = 24
+        else:
+            self.seasonNum = 23
+
+        self.nameNoExt = self.name[-self.seasonNum:].replace('.jpg', '')
+        print("no ext: " + str(self.nameNoExt))
+
+        if selects == False:
+            self.selected = False
+            self.xmpFolder = self.name[:-self.seasonNum].replace('_JPG_CROP', '')
+        else:
+            self.selected = True
+            self.xmpFolder = self.name[:-self.seasonNum].replace('_JPG_CROP', '/Selects')
+        print("xmpFolder: " + str(self.xmpFolder))
+
+        self.jpgFolder = self.name[:-self.seasonNum]
+        print("jpgFolder: " + str(self.jpgFolder))
+
         self.pixelArray = pixelArray
         self.filetype = self.findFiletype()
         self.background = 'green'
@@ -54,6 +74,7 @@ class myImg(object):
 
         self.widthPercent = rightBound - leftBound
         self.heightPercent = bottomBound - topBound
+        self.centerPercent = self.findCenter()
 
         #   values in pixels
         self.leftBoundPixel = int(pixelArray.shape[1] * leftBound)
@@ -63,7 +84,60 @@ class myImg(object):
 
         self.widthPixel = self.rightBoundPixel - self.leftBoundPixel
         self.heightPixel = self.bottomBoundPixel - self.topBoundPixel
+
         self.areaPixel = self.widthPixel * self.heightPixel
+
+        #   hair value
+        self.hairPercent = self.findHair()
+
+        #   determine distance of shot
+        for x in csvData:
+            if self.nameNoExt in x[0]:
+                self.dist = x[1]
+                break
+
+        print(self.dist)
+
+        if self.dist == "close":          # headshot
+            aboveHead = params.aboveHead
+            belowChin = params.belowChin
+        elif self.dist == "mid":          # mid
+            aboveHead = params.midHead
+            belowChin = params.midChin
+        else:                             # standing
+            aboveHead = params.farHead
+            belowChin = params.farChin
+
+        #   crop values
+        self.cropCoordsTopPercent = self.hairPercent - aboveHead
+        self.cropCoordsBottomPercent = self.bottomBoundPercent + belowChin
+
+        self.cropHeightPercent = self.cropCoordsBottomPercent - self.cropCoordsTopPercent
+        self.cropHeightPixel = self.cropHeightPercent * self.pixelArray.shape[0]
+        self.cropWidthPixel = (self.cropHeightPixel / 5) * 4
+        self.cropWidthPercent = self.cropWidthPixel / self.pixelArray.shape[1]
+        self.cropLeftPercent = self.centerPercent[0] - (self.cropWidthPercent / 2)
+        self.cropRightPercent = self.centerPercent[0] + (self.cropWidthPercent / 2)
+
+        if self.cropLeftPercent < 0:
+            self.cropLeftPercent = 0
+        if self.cropLeftPercent > 1:
+            self.cropLeftPercent = 1
+
+        if self.cropRightPercent > 1:
+            self.cropRightPercent = 1
+        if self.cropRightPercent < 0:
+            self.cropRightPercent = 0
+
+        if self.cropCoordsTopPercent > 1:
+            self.cropCoordsTopPercent = 1
+        if self.cropCoordsTopPercent < 0:
+            self.cropCoordsTopPercent = 0
+
+        if self.cropCoordsBottomPercent > 1:
+            self.cropCoordsBottomPercent = 1
+        if self.cropCoordsBottomPercent < 0:
+            self.cropCoordsBottomPercent = 0
 
         #   color values
         self.RGB = self.skinToneAverage()
@@ -160,9 +234,8 @@ class myImg(object):
 
     #   crops code to just face for color correcting tests
     def cropAmazonFace(self):
-        saveLocation = self.name[:-23]
-        saveExtension = self.name[-23:].replace('.jpg', '_crop.jpg')
-        saveLocation = saveLocation + '_faceCropped\\'
+        saveExtension = self.name[-self.seasonNum:].replace('.jpg', '_crop.jpg')
+        saveLocation = self.jpgFolder + '_faceCropped\\'
 
         if not os.path.exists(saveLocation):
             os.makedirs(saveLocation)
@@ -176,6 +249,56 @@ class myImg(object):
         #croppedImage.show()
 
         return
+
+
+    #   finds top of hair
+    def findHair(self):
+        folder = self.xmpFolder
+        rowValues = []
+        rowNum = 0
+
+        for row in self.pixelArray:
+            convertedLab = []
+            rSum = 0
+            gSum = 0
+            bSum = 0
+
+            for pixel in range(self.leftBoundPixel, self.rightBoundPixel):
+                rSum += row[pixel][0]
+                gSum += row[pixel][1]
+                bSum += row[pixel][2]
+
+            rAvg = rSum/self.widthPixel
+            gAvg = gSum/self.widthPixel
+            bAvg = bSum/self.widthPixel
+
+            rgb = sRGBColor(rAvg, gAvg, bAvg)
+            xyz = convert_color(rgb, XYZColor, target_illuminant='d50')
+            lab = convert_color(xyz, LabColor).get_value_tuple()
+
+            convertedLab.append(round(int(lab[0] / 100)))
+            convertedLab.append(round(int(lab[1] / 100)))
+            convertedLab.append(round(int(lab[2] / 100)))
+
+            rowData = [rowNum, convertedLab[0], convertedLab[1], convertedLab[2]]
+            #print("rowdata: " + str(rowData))
+
+            #   writes line color averages to a CSV
+            d = open(folder + "linedata.csv", "a")
+            d.write(str(self.name) + ',' + str(rowData[0]) + ',' + str(rowData[1]) + ',' + str(rowData[2]) + ',' +
+                    str(rowData[3]) + '\n')
+            d.close()
+
+            rowValues.append(rowData)
+            rowNum += 1
+
+            if (convertedLab[1] > -25 and rowNum > 25):
+                rowNum += 1
+                break
+
+        hairPercent = rowNum / self.pixelArray.shape[0]
+
+        return hairPercent
 
 
 #   class for parameters
@@ -213,6 +336,14 @@ class parameters(object):
         self.greenHighlights = self.readFile()[21]
         self.greenShadows = self.readFile()[22]
         self.greenSaturation = self.readFile()[23]
+
+        #   crop parameters
+        self.aboveHead = self.readFile()[24]
+        self.belowChin = self.readFile()[25]
+        self.midHead = self.readFile()[26]
+        self.midChin = self.readFile()[27]
+        self.farHead = self.readFile()[28]
+        self.farChin = self.readFile()[29]
 
 
     def readFile(self):
@@ -275,11 +406,26 @@ class parameters(object):
                 elif "greenSaturation" in line:
                     greenSaturation = float(line.replace('greenSaturation = ', '').replace('\n', ''))
 
+                #   crop
+                if "aboveHead" in line:
+                    aboveHead = float(line.replace('aboveHead = ', '').replace('\n', ''))
+                elif "belowChin" in line:
+                    belowChin = float(line.replace('belowChin = ', '').replace('\n', ''))
+                elif "midHead" in line:
+                    midHead = float(line.replace('midHead = ', '').replace('\n', ''))
+                elif "midChin" in line:
+                    midChin = float(line.replace('midChin = ', '').replace('\n', ''))
+                elif "farHead" in line:
+                    farHead = float(line.replace('farHead = ', '').replace('\n', ''))
+                elif "farChin" in line:
+                    farChin = float(line.replace('farChin = ', '').replace('\n', ''))
+
         f.close()
 
         return blueL, blueA, blueB, blueWhites, blueBlacks, blueHighlights, blueShadows, blueSaturation, \
                greyL, greyA, greyB, greyWhites, greyBlacks, greyHighlights, greyShadows, greySaturation, \
-               greenL, greenA, greenB, greenWhites, greenBlacks, greenHighlights, greenShadows, greenSaturation
+               greenL, greenA, greenB, greenWhites, greenBlacks, greenHighlights, greenShadows, greenSaturation, \
+               aboveHead, belowChin, midHead, midChin, farHead, farChin
 
 
 # MAIN FUNCTION---------------------------------------------------------------------------------------------------------
@@ -298,12 +444,34 @@ def main():
     countJPG = 0
 
     #   user selects folder
+    selects = False
     pathToFolder = browse_button()
-    pathlistJPG = Path(pathToFolder).glob('**/*.jpg')
+    print("path: " + str(pathToFolder))
 
-    #   for defining the pathlist used for iteration
-    pathlist = set(Path(pathToFolder).glob('**/*.jpg')) - set(Path(pathToFolder).glob('**/*_crop.jpg'))
-    pathlistTwo = set(Path(pathToFolder).glob('**/*.jpg')) - set(Path(pathToFolder).glob('**/*_crop.jpg'))
+    #   provision for handling Selects folders
+    if "Selects" in pathToFolder:
+        selects = True
+        rawList = set()
+        pathlistRAW = Path(pathToFolder).glob('**/*.*r*')
+
+        for path in pathlistRAW:
+            path = str(path).replace('\Selects', '_JPG_CROP').replace('.arw', '.jpg').replace('.cr2', '.jpg')
+            rawList.add(Path(path))
+
+        pathlistJPG = set(rawList)
+
+        #   for defining the pathlist used for iteration
+        pathlist = pathlistJPG
+        print("pathlist: " + str(pathlist))
+
+    #   if not a Selects folder
+    else:
+        pathlistJPG = Path(pathToFolder).glob('**/*.jpg')
+        print("pathlistJPG: " + str(pathlistJPG))
+
+        #   for defining the pathlist used for iteration
+        pathlist = set(Path(pathToFolder).glob('**/*.jpg')) - set(Path(pathToFolder).glob('**/*_crop.jpg'))
+        print("pathlist: " + str(pathlist))
 
     #   for defining color averages
     toneCount = 0
@@ -313,7 +481,7 @@ def main():
 
     #   for keeping track of each image object
     imageList = []
-    imageListCount = -1
+    imageListCount = 0
 
     #   for viewing a 3D scatterplot of data
     fig = pyplot.figure()
@@ -327,23 +495,48 @@ def main():
 
 
     # CSV INITIALIZATION------------------------------------------------------------------------------------------------
-    #   crop CSV
-    f = open(pathToFolder.replace('_JPG_CROP', '') + "/" + "cropdata.csv", "w")
-    f.write('image,' + 'tophead,' + 'topcrop,' + 'bottomcrop,' + 'leftcrop,' + 'rightcrop' '\n')
-    f.close()
+    #   line CSV
+    if selects == False:
+        f = open(pathToFolder.replace('_JPG_CROP', '') + "/" + "linedata.csv", "w")
+        f.write('image,' + 'row,' + 'L,' + 'a,' + 'b' '\n')
+        f.close()
 
-    #   color CSV
-    f = open(pathToFolder.replace('_JPG_CROP', '') + "/" + "colordata.csv", "w")
-    f.write('image,' + 'R,' + 'G,' + 'B,' + 'L,' + 'a,' + 'b,' + 'modL,' + 'moda,' + 'modb' '\n')
-    f.close()
+        #   crop CSV
+        f = open(pathToFolder.replace('_JPG_CROP', '') + "/" + "cropdata.csv", "w")
+        f.write('image,' + 'tophead,' + 'topcrop,' + 'bottomcrop,' + 'leftcrop,' + 'rightcrop,' + 'distance' '\n')
+        f.close()
 
+        #   color CSV
+        f = open(pathToFolder.replace('_JPG_CROP', '') + "/" + "colordata.csv", "w")
+        f.write('image,' + 'R,' + 'G,' + 'B,' + 'L,' + 'a,' + 'b,' + 'modL,' + 'moda,' + 'modb' '\n')
+        f.close()
+
+        #   distance CSV
+        distCSV = pathToFolder.replace('_JPG_CROP', '') + "/" + "dist.csv"
+
+    else:
+        f = open(pathToFolder.replace('_JPG_CROP', '/Selects') + "/" + "linedata.csv", "w")
+        f.write('image,' + 'row,' + 'L,' + 'a,' + 'b' '\n')
+        f.close()
+
+        #   crop CSV
+        f = open(pathToFolder.replace('_JPG_CROP', '/Selects') + "/" + "cropdata.csv", "w")
+        f.write('image,' + 'tophead,' + 'topcrop,' + 'bottomcrop,' + 'leftcrop,' + 'rightcrop' '\n')
+        f.close()
+
+        #   color CSV
+        f = open(pathToFolder.replace('_JPG_CROP', '/Selects') + "/" + "colordata.csv", "w")
+        f.write('image,' + 'R,' + 'G,' + 'B,' + 'L,' + 'a,' + 'b,' + 'modL,' + 'moda,' + 'modb' '\n')
+        f.close()
+
+        #   distance CSV
+        distCSV = pathToFolder.replace('_JPG_CROP', '/Selects') + "/" + "dist.csv"
+
+    distArray = findDist(distCSV)
 
     # USER INPUT--------------------------------------------------------------------------------------------------------
     #   alerts for user
     print("ALERT: Please make sure all relevant CSV files are closed before running this program")
-
-    #   user selects job specs
-    shoobparams = parameters(CONST_PARAM)
 
     #   ensure the correct folder has been selected by counting JPGs
     for path in pathlistJPG:
@@ -376,16 +569,14 @@ def main():
             #OrientationCorrection = awsMasterOutput[2]
 
             #   instantiating image object and adding it to a list of images
-            shoobimage = myImg(jpgPath, BoundingBoxJSON, pixelArray)
+            shoobimage = myImg(jpgPath, BoundingBoxJSON, pixelArray, shoobparams, selects, distArray)
             imageList.append(shoobimage)
             shoobimage.cropAmazonFace()
 
             #   creates default XMP and color settings
             defaultXMP(shoobimage, CONST_CR2XMP, CONST_ARWXMP)
-            defaultColor(shoobimage)
-
-            #   getting center of face
-            faceCenterPercent = shoobimage.findCenter()
+            cropXMP(shoobimage)
+            defaultColor(shoobimage, shoobparams)
 
             #   find skin tone
             tone = shoobimage.skinToneAverage()
@@ -395,7 +586,7 @@ def main():
             bTone = bTone + tone[2]
 
             #   writes cropping CSV
-            writeCropCSV()
+            writeCropCSV(shoobimage)
             print("Cropping " + shoobimage.name)
 
             #   add data to scatterplot lists
@@ -432,12 +623,14 @@ def main():
 
 
     # COLOR CORRECTING--------------------------------------------------------------------------------------------------
-    for path in pathlistTwo:
+    for path in imageList:
+        print("Color image #" + str(imageListCount))
         shoobimage = imageList[imageListCount]
+        print("Color correcting " + str(shoobimage.name))
 
         colorXMP(shoobimage, shoobparams)
 
-        writeColorCSV(shoobimage.name, shoobimage.RGB, shoobimage.Lab, shoobimage.modifiedLab, pathToFolder)
+        writeColorCSV(shoobimage.name, shoobimage.RGB, shoobimage.Lab, shoobimage.modifiedLab, shoobimage.xmpFolder)
         imageListCount = imageListCount + 1
 
     print("*Color Correcting Complete*")
@@ -454,6 +647,19 @@ def main():
 
 
 # BODY FUNCTIONS--------------------------------------------------------------------------------------------------------
+#   use CSV to find distances
+def findDist(csvFile):
+    datafile = open(csvFile, 'r')
+    datareader = csv.reader(datafile)
+    data = []
+    for row in datareader:
+        data.append(row)
+
+    data.sort()
+    print("CSV: " + str(data))
+    return data
+
+
 #   folder select button
 def browse_button():
 
@@ -520,7 +726,11 @@ def rekognitionRequest(path):
 def defaultXMP(image, CR2XMP, ARWXMP):
     filetype = image.filetype
     filename = image.name.replace('.jpg', '')
-    path = image.name.replace('_JPG_CROP', '').replace('.jpg', '.xmp')
+
+    if image.selected == False:
+        path = image.name.replace('_JPG_CROP', '').replace('.jpg', '.xmp')
+    else:
+        path = image.name.replace('_JPG_CROP', '/Selects').replace('.jpg', '.xmp')
 
     #   if file is a CR2
     if filetype == "CR2":
@@ -530,7 +740,7 @@ def defaultXMP(image, CR2XMP, ARWXMP):
         with open(path, 'r') as f:
             for line in f:
                 if "RawFileName" in line:
-                    f_tmp.write("   crs:RawFileName=\"" + filename + "\">")
+                    f_tmp.write("   crs:RawFileName=\"" + filename + "\">\n")
                 else:
                     f_tmp.write(line)
 
@@ -542,9 +752,10 @@ def defaultXMP(image, CR2XMP, ARWXMP):
         with open(path, 'r') as f:
             for line in f:
                 if "RawFileName" in line:
-                    f_tmp.write("   crs:RawFileName=\"" + filename + "\">")
+                    f_tmp.write("   crs:RawFileName=\"" + filename + "\">\n")
                 else:
                     f_tmp.write(line)
+
 
     #   if file isn't valid RAW
     else:
@@ -558,9 +769,79 @@ def defaultXMP(image, CR2XMP, ARWXMP):
 
     return
 
+
+#   applies cropping coordinates to XMP
+def cropXMP(image):
+    if image.selected == False:
+        path = image.name.replace('_JPG_CROP', '').replace('.jpg', '.xmp')
+    else:
+        path = image.name.replace('_JPG_CROP', '/Selects').replace('.jpg', '.xmp')
+
+    f_tmp = open(path + '_tmp', 'w')
+
+    # goes line by line until 'HasCrop' is found
+    with open(path, 'r') as f:
+        for line in f:
+            if "HasCrop" in line:
+                f_tmp.write("   crs:CropTop=\"{}\"\n".format(image.cropLeftPercent))
+                f_tmp.write("   crs:CropLeft=\"{}\"\n".format(1 - image.cropCoordsTopPercent))
+                f_tmp.write("   crs:CropBottom=\"{}\"\n".format(image.cropRightPercent))
+                f_tmp.write("   crs:CropRight=\"{}\"\n".format(1 - image.cropCoordsBottomPercent))
+                f_tmp.write("   crs:CropAngle=\"0\"\n")
+                f_tmp.write("   crs:CropConstrainToWarp=\"1\"\n")
+                f_tmp.write("   crs:CropWidth=\"4\"\n")
+                f_tmp.write("   crs:CropHeight=\"5\"\n")
+                f_tmp.write("   crs:CropUnit=\"3\"\n")
+                f_tmp.write("   crs:HasCrop=\"True\"\n")
+            else:
+                f_tmp.write(line)
+
+    f.close()
+    f_tmp.close()
+    remove(path)
+    rename(path + '_tmp', path)
+
+    return
+
+
 #   applies the shoob default color corrections
-def defaultColor(image):
-    path = image.name.replace('_JPG_CROP', '').replace('.jpg', '.xmp')
+def defaultColor(image, params):
+    if image.selected == False:
+        path = image.name.replace('_JPG_CROP', '').replace('.jpg', '.xmp')
+    else:
+        path = image.name.replace('_JPG_CROP', '/Selects').replace('.jpg', '.xmp')
+
+    #   determine params based on background color
+    if image.background == "green":
+        sat = params.greenSaturation
+        high = params.greenHighlights
+        shad = params.greenShadows
+        wh = params.greenWhites
+        bl = params.greenBlacks
+    elif image.background == "blue":
+        sat = params.blueSaturation
+        high = params.blueHighlights
+        shad = params.blueShadows
+        wh = params.blueWhites
+        bl = params.blueBlacks
+    else:
+        sat = params.greySaturation
+        high = params.greyHighlights
+        shad = params.greyShadows
+        wh = params.greyWhites
+        bl = params.greyBlacks
+
+    #   determine star count based on distance
+    if image.dist == "close":
+        rating = '1'
+        label = "Select"
+    elif image.dist == "mid":
+        rating = '2'
+        label = "Second"
+    else:
+        rating = '3'
+        label = "Approved"
+
     f_tmp = open(path + '_tmp', 'w')
 
     #   goes line by line until 'HasSettings' is found
@@ -572,7 +853,7 @@ def defaultColor(image):
                 f_tmp.write("   crs:WhiteBalance=\"Custom\"\n")
                 f_tmp.write("   crs:Temperature=\"5000\"\n")
                 f_tmp.write("   crs:Tint=\"+5\"\n")
-                f_tmp.write("   crs:Saturation=\"0\"\n")
+                f_tmp.write("   crs:Saturation=\"" + str(sat) + "\"\n")
                 f_tmp.write("   crs:Sharpness=\"40\"\n")
                 f_tmp.write("   crs:LuminanceSmoothing=\"0\"\n")
                 f_tmp.write("   crs:ColorNoiseReduction=\"25\"\n")
@@ -641,10 +922,10 @@ def defaultColor(image):
                 f_tmp.write("   crs:AutoLateralCA=\"0\"\n")
                 f_tmp.write("   crs:Exposure2012=\"+0\"\n")
                 f_tmp.write("   crs:Contrast2012=\"0\"\n")
-                f_tmp.write("   crs:Highlights2012=\"0\"\n")
-                f_tmp.write("   crs:Shadows2012=\"0\"\n")
-                f_tmp.write("   crs:Whites2012=\"0\"\n")
-                f_tmp.write("   crs:Blacks2012=\"0\"\n")
+                f_tmp.write("   crs:Highlights2012=\"" + str(high) + "\"\n")
+                f_tmp.write("   crs:Shadows2012=\"" + str(shad) + "\"\n")
+                f_tmp.write("   crs:Whites2012=\"" + str(wh) + "\"\n")
+                f_tmp.write("   crs:Blacks2012=\"" + str(bl) + "\"\n")
                 f_tmp.write("   crs:Clarity2012=\"0\"\n")
                 f_tmp.write("   crs:DefringePurpleAmount=\"0\"\n")
                 f_tmp.write("   crs:DefringePurpleHueLo=\"30\"\n")
@@ -671,6 +952,10 @@ def defaultColor(image):
                 f_tmp.write("   crs:UprightTransformCount=\"6\"\n")
                 f_tmp.write("   crs:UprightFourSegmentsCount=\"0\"\n")
                 f_tmp.write("   crs:HasSettings=\"True\"\n")
+            elif "xmp:Rating" in line:
+                f_tmp.write("   xmp:Rating=\"" + rating + "\"\n")
+            elif "xmp:Label" in line:
+                f_tmp.write("   xmp:Label=\"" + label + "\"\n")
             else:
                 f_tmp.write(line)
         f.close()
@@ -686,7 +971,11 @@ def defaultColor(image):
 def colorXMP(image, params):
     #   initialize all variables
     background = image.background
-    path = image.name.replace('_JPG_CROP', '').replace('.jpg', '.xmp')
+
+    if image.selected == False:
+        path = image.name.replace('_JPG_CROP', '').replace('.jpg', '.xmp')
+    else:
+        path = image.name.replace('_JPG_CROP', '/Selects').replace('.jpg', '.xmp')
 
     imageL = image.modifiedLab[0]
     imageA = image.modifiedLab[1]
@@ -802,13 +1091,17 @@ def colorXMP(image, params):
 
 # TEST/DATA FUNCTIONS---------------------------------------------------------------------------------------------------
 #   writes crop data to CSV
-def writeCropCSV():
-
+def writeCropCSV(image):
+    d = open(image.xmpFolder + "/" + "cropdata.csv", "a")
+    d.write(str(image.name) + ',' + str(image.hairPercent) + ',' +
+            str(image.cropCoordsTopPercent) + ',' + str(image.cropCoordsBottomPercent) + ',' +
+            str(image.cropLeftPercent) + ',' + str(image.cropRightPercent) + ',' + str(image.dist) + '\n')
+    d.close()
     return
 
 #   writes color data to CSV
 def writeColorCSV(name, RGB, Lab, modLab, folder):
-    d = open(folder.replace('_JPG_CROP', '') + "/" + "colordata.csv", "a")
+    d = open(folder + "/" + "colordata.csv", "a")
     d.write(str(name) + ',' +
             str(RGB[0]) + ',' + str(RGB[1]) + ',' + str(RGB[2]) + ',' +
             str(Lab[0]) + ',' + str(Lab[1]) + ',' + str(Lab[2]) + ',' +
