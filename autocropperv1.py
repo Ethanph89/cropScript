@@ -92,23 +92,28 @@ class myImg(object):
 
         #   determine distance of shot
         for x in csvData:
-            if self.nameNoExt in x[0]:
+            if self.nameNoExt in x[0].lower():
+                print("found in CSV")
                 self.dist = x[1]
                 break
 
         print(self.dist)
 
-        if self.dist == "close":          # headshot
+        if self.dist == "cl":            # headshot
+            self.dist = "close"
             aboveHead = params.aboveHead
             belowChin = params.belowChin
-        elif self.dist == "mid":          # mid
+        elif self.dist == "mi":          # mid
+            self.dist = "mid"
             aboveHead = params.midHead
             belowChin = params.midChin
-        else:                             # standing
+        else:                            # standing
+            self.dist = "far"
             aboveHead = params.farHead
             belowChin = params.farChin
 
         #   crop values
+        print("crop calc: " + str(self.hairPercent) + " - " + str(aboveHead))
         self.cropCoordsTopPercent = self.hairPercent - aboveHead
         self.cropCoordsBottomPercent = self.bottomBoundPercent + belowChin
 
@@ -130,19 +135,31 @@ class myImg(object):
             self.cropRightPercent = 0
 
         if self.cropCoordsTopPercent > 1:
+            print("CROP TOP ERROR " + str(self.cropCoordsTopPercent))
             self.cropCoordsTopPercent = 1
         if self.cropCoordsTopPercent < 0:
+            print("CROP TOP ERROR " + str(self.cropCoordsTopPercent))
             self.cropCoordsTopPercent = 0
 
         if self.cropCoordsBottomPercent > 1:
+            print("CROP TOP ERROR " + str(self.cropCoordsBottomPercent))
             self.cropCoordsBottomPercent = 1
         if self.cropCoordsBottomPercent < 0:
+            print("CROP TOP ERROR " + str(self.cropCoordsBottomPercent))
             self.cropCoordsBottomPercent = 0
 
         #   color values
         self.RGB = self.skinToneAverage()
         self.Lab = self.RGBtoLab()
         self.modifiedLab = self.modifyLab()  # modified Lab is the value post-fudging
+
+        if self.modifiedLab[0] > 60:
+            self.skincolor = "pale"
+        elif self.modifiedLab[0] <= 60 and self.modifiedLab[0] > 45:
+            self.skincolor = "tan"
+        else:
+            self.skincolor = "dark"
+        print(str(self.skincolor))
 
     #   finds the raw filetype being used
     def findFiletype(self):
@@ -292,7 +309,7 @@ class myImg(object):
             rowValues.append(rowData)
             rowNum += 1
 
-            if (convertedLab[1] > -25 and rowNum > 25):
+            if (convertedLab[1] > -10 and rowNum > 25):
                 rowNum += 1
                 break
 
@@ -996,6 +1013,8 @@ def colorXMP(image, params):
 
     #   calculate Lab value changes needed
     xmpL = (paramsL - imageL) * 0.05
+    if image.skincolor == "pale":
+        xmpL = xmpL * 1.05
     print("xmpL: " + str(xmpL))  # set L
 
     AChangeAmount = paramsA - imageA
