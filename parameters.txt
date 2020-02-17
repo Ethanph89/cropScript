@@ -19,11 +19,24 @@ greyShadows = 0
 greySaturation = 0
 
 # green params
-greenL! = 55
-greenA! = 15
+# L from 49 -> 51
+greenL! = 51
+greenA! = 17
 greenB! = 15
-greenWhites = 0
-greenBlacks = 0
-greenHighlights = 0
-greenShadows = 0
-greenSaturation = 0
+greenWhites = +10
+greenBlacks = +10
+greenHighlights = 10
+greenShadows = 10
+greenSaturation = 5
+
+# crop params
+aboveHead = 0.08
+belowChin = 0.2125
+midHead = 0.08
+midChin = 0.3
+farHead = 0.08
+farChin = 0.5
+
+# tone params (the modification on the anchor L value)
+paleMod = 0
+darkMod = 0

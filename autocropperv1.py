@@ -37,6 +37,7 @@ np.set_printoptions(threshold=sys.maxsize)
 class myImg(object):
 
     def __init__(self, name, JSON, pixelArray, params, selects, csvData):
+        print("--------------------------------------------------------")
         leftBound = JSON.get("Left")
         rightBound = leftBound + JSON.get("Width")
         topBound = JSON.get("Top")
@@ -49,7 +50,7 @@ class myImg(object):
             self.seasonNum = 23
 
         self.nameNoExt = self.name[-self.seasonNum:].replace('.jpg', '')
-        print("no ext: " + str(self.nameNoExt))
+        #print("no ext: " + str(self.nameNoExt))
 
         if selects == False:
             self.selected = False
@@ -113,7 +114,7 @@ class myImg(object):
             belowChin = params.farChin
 
         #   crop values
-        print("crop calc: " + str(self.hairPercent) + " - " + str(aboveHead))
+        #print("crop calc: " + str(self.hairPercent) + " - " + str(aboveHead))
         self.cropCoordsTopPercent = self.hairPercent - aboveHead
         self.cropCoordsBottomPercent = self.bottomBoundPercent + belowChin
 
@@ -163,8 +164,15 @@ class myImg(object):
 
     #   finds the raw filetype being used
     def findFiletype(self):
-        ARWpath = self.name.replace('_JPG_CROP', '').replace('.jpg', '.arw')
-        CR2path = self.name.replace('_JPG_CROP', '').replace('.jpg', '.cr2')
+        if self.selected == False:
+            ARWpath = self.name.replace('_JPG_CROP', '').replace('.jpg', '.arw')
+            CR2path = self.name.replace('_JPG_CROP', '').replace('.jpg', '.cr2')
+        else:
+            ARWpath = self.name.replace('_JPG_CROP', '/Selects').replace('.jpg', '.arw')
+            CR2path = self.name.replace('_JPG_CROP', '/Selects').replace('.jpg', '.cr2')
+
+        # print("ARWpath: " + str(ARWpath))
+        # print("CR2path: " + str(CR2path))
 
         if os.path.exists(CR2path):
             filetype = "CR2"
@@ -362,6 +370,10 @@ class parameters(object):
         self.farHead = self.readFile()[28]
         self.farChin = self.readFile()[29]
 
+        #   tone parameters
+        self.paleMod = self.readFile()[30]
+        self.darkMod = self.readFile()[31]
+
 
     def readFile(self):
         param_tmp = open(self.file, 'r')
@@ -437,12 +449,18 @@ class parameters(object):
                 elif "farChin" in line:
                     farChin = float(line.replace('farChin = ', '').replace('\n', ''))
 
+                #   tone
+                if "paleMod" in line:
+                    paleMod = float(line.replace('paleMod = ', '').replace('\n', ''))
+                elif "darkMod" in line:
+                    darkMod = float(line.replace('darkMod = ', '').replace('\n', ''))
+
         f.close()
 
         return blueL, blueA, blueB, blueWhites, blueBlacks, blueHighlights, blueShadows, blueSaturation, \
                greyL, greyA, greyB, greyWhites, greyBlacks, greyHighlights, greyShadows, greySaturation, \
                greenL, greenA, greenB, greenWhites, greenBlacks, greenHighlights, greenShadows, greenSaturation, \
-               aboveHead, belowChin, midHead, midChin, farHead, farChin
+               aboveHead, belowChin, midHead, midChin, farHead, farChin, paleMod, darkMod
 
 
 # MAIN FUNCTION---------------------------------------------------------------------------------------------------------
@@ -850,13 +868,10 @@ def defaultColor(image, params):
 
     #   determine star count based on distance
     if image.dist == "close":
-        rating = '1'
         label = "Select"
     elif image.dist == "mid":
-        rating = '2'
         label = "Second"
     else:
-        rating = '3'
         label = "Approved"
 
     f_tmp = open(path + '_tmp', 'w')
@@ -969,8 +984,6 @@ def defaultColor(image, params):
                 f_tmp.write("   crs:UprightTransformCount=\"6\"\n")
                 f_tmp.write("   crs:UprightFourSegmentsCount=\"0\"\n")
                 f_tmp.write("   crs:HasSettings=\"True\"\n")
-            elif "xmp:Rating" in line:
-                f_tmp.write("   xmp:Rating=\"" + rating + "\"\n")
             elif "xmp:Label" in line:
                 f_tmp.write("   xmp:Label=\"" + label + "\"\n")
             else:
@@ -1014,7 +1027,9 @@ def colorXMP(image, params):
     #   calculate Lab value changes needed
     xmpL = (paramsL - imageL) * 0.05
     if image.skincolor == "pale":
-        xmpL = xmpL * 1.05
+        xmpL = xmpL + params.paleMod
+    elif image.skincolor == "dark":
+        xmpL = xmpL + params.darkMod
     print("xmpL: " + str(xmpL))  # set L
 
     AChangeAmount = paramsA - imageA
