@@ -50,7 +50,7 @@ class myImg(object):
             self.seasonNum = 23
 
         self.nameNoExt = self.name[-self.seasonNum:].replace('.jpg', '')
-        #print("no ext: " + str(self.nameNoExt))
+        print("no ext: " + str(self.nameNoExt))
 
         if selects == False:
             self.selected = False
@@ -58,10 +58,10 @@ class myImg(object):
         else:
             self.selected = True
             self.xmpFolder = self.name[:-self.seasonNum].replace('_JPG_CROP', '/Selects')
-        print("xmpFolder: " + str(self.xmpFolder))
+        #print("xmpFolder: " + str(self.xmpFolder))
 
         self.jpgFolder = self.name[:-self.seasonNum]
-        print("jpgFolder: " + str(self.jpgFolder))
+        #print("jpgFolder: " + str(self.jpgFolder))
 
         self.pixelArray = pixelArray
         self.filetype = self.findFiletype()
@@ -98,7 +98,7 @@ class myImg(object):
                 self.dist = x[1]
                 break
 
-        print(self.dist)
+        #print(self.dist)
 
         if self.dist == "cl":            # headshot
             self.dist = "close"
@@ -171,8 +171,8 @@ class myImg(object):
             ARWpath = self.name.replace('_JPG_CROP', '/Selects').replace('.jpg', '.arw')
             CR2path = self.name.replace('_JPG_CROP', '/Selects').replace('.jpg', '.cr2')
 
-        # print("ARWpath: " + str(ARWpath))
-        # print("CR2path: " + str(CR2path))
+        #print("ARWpath: " + str(ARWpath))
+        #print("CR2path: " + str(CR2path))
 
         if os.path.exists(CR2path):
             filetype = "CR2"
