@@ -19,7 +19,7 @@ greyShadows = 0
 greySaturation = 0
 
 # green params
-# L from 49 -> 51
+# L from 51 -> 59
 greenL! = 59
 greenA! = 17
 greenB! = 15
@@ -29,9 +29,9 @@ greenHighlights = 10
 greenShadows = 10
 greenSaturation = 5
 
-# crop params
-aboveHead = 0.08
-belowChin = 0.2325
+# crop params 
+aboveHead = 0.10
+belowChin = 0.2425
 midHead = 0.08
 midChin = 0.3
 farHead = 0.08
