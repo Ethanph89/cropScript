@@ -2,6 +2,7 @@
 import json
 from os import rename, remove
 import os.path
+import pathlib
 import PIL.Image
 from PIL import Image, ImageFilter, ImageShow
 import PIL.Image
@@ -91,14 +92,18 @@ class myImg(object):
         #   hair value
         self.hairPercent = self.findHair()
 
-        #   determine distance of shot
+        #   determine distance of shot or redirects down no-distance path
         for x in csvData:
-            if self.nameNoExt in x[0].lower():
+            if self.nameNoExt in x[0].lower() or "NODISTCSV" in x[0]:
                 print("found in CSV")
                 self.dist = x[1]
                 break
 
         #print(self.dist)
+
+        #   no distance path to determine distance
+        if self.dist == "NODIST":
+            self.dist = self.findSelfDist()
 
         if self.dist == "cl":            # headshot
             self.dist = "close"
@@ -191,6 +196,17 @@ class myImg(object):
     def findCenter(self):
         return ((self.leftBoundPercent + self.rightBoundPercent) / 2,
                 (self.topBoundPercent + self.bottomBoundPercent) / 2)
+
+
+    #   finds distance for images without a dist CSV
+    def findSelfDist(self):
+        print("finding dist for " + str(self.nameNoExt))
+        if self.areaPixel >= 8000:
+            return "cl"
+        elif self.areaPixel >= 4000 and self.areaPixel < 8000:
+            return "mi"
+        else:
+            return "fa"
 
 
     #   finds avergae skin tone colors as RGB
@@ -546,8 +562,13 @@ def main():
         f.write('image,' + 'R,' + 'G,' + 'B,' + 'L,' + 'a,' + 'b,' + 'modL,' + 'moda,' + 'modb' '\n')
         f.close()
 
-        #   distance CSV
-        distCSV = pathToFolder.replace('_JPG_CROP', '') + "/" + "dist.csv"
+        #   distance CSV if it exists
+        if pathlib.Path(pathToFolder.replace('_JPG_CROP', '') + "/" + "dist.csv").exists():
+            print("dist.csv exists")
+            distCSV = pathToFolder.replace('_JPG_CROP', '') + "/" + "dist.csv"
+        else:
+            print("dist.csv does not exist, using default csv")
+            distCSV = "J:/_CropScript/noDist.csv"
 
     else:
         f = open(pathToFolder.replace('_JPG_CROP', '/Selects') + "/" + "linedata.csv", "w")
@@ -564,8 +585,13 @@ def main():
         f.write('image,' + 'R,' + 'G,' + 'B,' + 'L,' + 'a,' + 'b,' + 'modL,' + 'moda,' + 'modb' '\n')
         f.close()
 
-        #   distance CSV
-        distCSV = pathToFolder.replace('_JPG_CROP', '/Selects') + "/" + "dist.csv"
+        #   distance CSV if it exists
+        if pathlib.Path(pathToFolder.replace('_JPG_CROP', '/Selects') + "/" + "dist.csv").exists():
+            print("dist.csv exists")
+            distCSV = pathToFolder.replace('_JPG_CROP', '/Selects') + "/" + "dist.csv"
+        else:
+            print("dist.csv does not exist, using default csv")
+            distCSV = "J:/_CropScript/noDist.csv"
 
     distArray = findDist(distCSV)
 
@@ -866,7 +892,7 @@ def defaultColor(image, params):
         wh = params.greyWhites
         bl = params.greyBlacks
 
-    #   determine star count based on distance
+    #   determine label based on distance
     if image.dist == "close":
         label = "Select"
     elif image.dist == "mid":
@@ -1040,8 +1066,6 @@ def colorXMP(image, params):
     GImpactL = round(round(AChangeAmount * (1 / -.87)) / 4)
     xmpL = xmpL + (GImpactL * 0.05)
     print("recalc xmpL: " + str(xmpL))  # account for A impacting L
-
-    # [INSERT CODE HERE]  # account for A impacting B
 
     BChangeAmount  = paramsB - imageB
     print("B change amount: " + str(BChangeAmount))
